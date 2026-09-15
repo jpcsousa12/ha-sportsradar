@@ -198,3 +198,107 @@ async def test_numeric_team_id_skips_the_search_endpoint(hass, socket_enabled):
     state = hass.states.get("sensor.test_sofascore_porto")
     assert state is not None
     assert state.state == "PRE"
+
+
+async def test_live_match_found_without_the_live_feed(hass, socket_enabled):
+    """A live match is detected from the team's own "last events" list.
+
+    The in-progress match is the most recent entry there, so live detection
+    works even when the live feed is blocked.
+    """
+    live = FIX["live_event"]
+
+    def _blocked(*args, **kwargs):
+        raise AssertionError("the live feed must not be needed")
+
+    patches = [
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.find_team_by_name",
+            return_value=TEAM_RESULT,
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_team_last_event",
+            return_value=live,
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_team_next_event",
+            return_value=None,
+        ),
+        patch("custom_components.sportsradar.SofaScoreAPI.get_event", return_value=live),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_event_statistics",
+            return_value=None,
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_team_live_event",
+            side_effect=_blocked,
+        ),
+    ]
+    for p in patches:
+        p.start()
+    try:
+        entry = MockConfigEntry(
+            domain=DOMAIN, title="team_tracker", data=CONFIG_SOFASCORE
+        )
+        entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    finally:
+        for p in patches:
+            p.stop()
+
+    state = hass.states.get("sensor.test_sofascore_porto")
+    assert state is not None
+    assert state.state == "IN"
+
+
+async def test_blocked_live_feed_does_not_fail_the_update(hass, socket_enabled):
+    """A 403 on the live feed must not take the sensor unavailable.
+
+    Some hosts are refused on the broad feeds while the team endpoints answer
+    normally; the update has to survive on those.
+    """
+    from custom_components.sportsradar.sofascore_api import SofaScoreApiError
+
+    patches = [
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.find_team_by_name",
+            return_value=TEAM_RESULT,
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_team_last_event",
+            return_value=None,
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_team_next_event",
+            return_value=FIX["pre_event"],
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_event",
+            return_value=FIX["pre_event"],
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_event_statistics",
+            return_value=None,
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_team_live_event",
+            side_effect=SofaScoreApiError("403 Forbidden for /sport/football/events/live"),
+        ),
+    ]
+    for p in patches:
+        p.start()
+    try:
+        entry = MockConfigEntry(
+            domain=DOMAIN, title="team_tracker", data=CONFIG_SOFASCORE
+        )
+        entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    finally:
+        for p in patches:
+            p.stop()
+
+    state = hass.states.get("sensor.test_sofascore_porto")
+    assert state is not None
+    assert state.state == "PRE"

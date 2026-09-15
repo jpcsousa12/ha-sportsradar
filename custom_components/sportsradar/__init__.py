@@ -504,22 +504,27 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_resolve_event(self, sensor_name, team_name, sport):
         """Find which fixture to follow, and remember it.
 
-        Order matters: a match that is in progress has already left the
-        "next events" list, so the live feed is checked first. The most
-        recent match is the final fallback so a just-finished result is not
-        lost between fixtures.
-        """
-        event = await self.sofascore_api.get_team_live_event(
-            self.sofascore_team_id, sport
-        )
+        Team-scoped endpoints are tried first. They are cheaper, and they are
+        also the ones that keep working when SofaScore blocks a host: some
+        hosts get 403 on the broad feeds (/search/all, /sport/*/events/live)
+        while /team/{id}/... and /event/{id} still answer normally.
 
-        if event:
+        A match that is in progress has already left the "next events" list,
+        but it does appear as the most recent entry of the "last events" list,
+        so live detection does not actually need the live feed.
+        """
+        event = None
+
+        recent = await self.sofascore_api.get_team_last_event(self.sofascore_team_id)
+
+        if recent and not self._is_finished(recent):
             _LOGGER.info(
                 "%s: Found LIVE event (ID: %s) for team '%s'",
                 sensor_name,
-                event.get("id"),
+                recent.get("id"),
                 team_name,
             )
+            event = recent
         else:
             event = await self.sofascore_api.get_team_next_event(self.sofascore_team_id)
 
@@ -530,17 +535,29 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
                     event.get("id"),
                     team_name,
                 )
-            else:
-                event = await self.sofascore_api.get_team_last_event(
-                    self.sofascore_team_id
+            elif recent:
+                _LOGGER.debug(
+                    "%s: No upcoming event for '%s', showing most recent (ID: %s)",
+                    sensor_name,
+                    team_name,
+                    recent.get("id"),
                 )
-                if event:
-                    _LOGGER.debug(
-                        "%s: No upcoming event for '%s', showing most recent (ID: %s)",
-                        sensor_name,
-                        team_name,
-                        event.get("id"),
-                    )
+                event = recent
+
+        if event is None:
+            # Last resort only. Guarded because this feed is the first thing
+            # SofaScore blocks, and a block here must not fail the update when
+            # the team endpoints answered.
+            try:
+                event = await self.sofascore_api.get_team_live_event(
+                    self.sofascore_team_id, sport
+                )
+            except SofaScoreApiError as error:
+                _LOGGER.debug(
+                    "%s: Live feed unavailable (%s); relying on team endpoints",
+                    sensor_name,
+                    error,
+                )
 
         if event:
             self.sofascore_event_id = event.get("id")
