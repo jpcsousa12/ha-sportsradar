@@ -2,7 +2,7 @@
 from homeassistant.const import Platform
 from datetime import timedelta
 
-# API
+# API - Legacy ESPN (kept for backwards compatibility)
 URL_HEAD = "http://site.api.espn.com/apis/site/v2/sports/"
 URL_TAIL = "/scoreboard"
 API_LIMIT = 50
@@ -10,6 +10,9 @@ USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_6) AppleWebKit/605.1.15 (KHTML, like "
     "Gecko) Version/15.0 Safari/605.1.15"
 )
+
+# SofaScore API
+SOFASCORE_API_BASE = "https://api.sofascore.com/api/v1"
 
 # Config
 CONF_API_LANGUAGE = "api_language"
@@ -177,16 +180,21 @@ SPORT_ICON_MAP = {
 # Defaults
 DEFAULT_CONFERENCE_ID = ""
 DEFAULT_ICON = "mdi:scoreboard"
-DEFAULT_LEAGUE = "NFL"
+DEFAULT_LEAGUE = ""  # No default league in SofaScore mode
 DEFAULT_LOGO = (
     "https://cdn0.iconfinder.com/data/icons/shift-interfaces/32/Error-512.png"
 )
 DEFAULT_NAME = "team_tracker"
 DEFAULT_PROB = 0.0
-DEFAULT_SPORT_PATH = "UNDEFINED_SPORT"
+DEFAULT_SPORT_PATH = "football"  # Default to football/soccer
 DEFAULT_TIMEOUT = 120
 DEFAULT_LAST_UPDATE = "2022-02-02 02:02:02-05:00"
 DEFAULT_KICKOFF_IN = "{test} days"
+# How long after KICK-OFF a finished match stays on the sensor before it rolls
+# over to the next fixture. This is measured from the start of the match, so it
+# needs to cover the match itself plus the time the result stays on display.
+POST_GAME_HOLD = timedelta(hours=5)
+
 DEFAULT_REFRESH_RATE = timedelta(minutes=10)
 RAPID_REFRESH_RATE = timedelta(seconds=5)
 
@@ -195,9 +203,25 @@ SERVICE_NAME_CALL_API = "call_api"
 
 # Misc
 TEAM_ID = ""
-VERSION = "v0.14.9"
+VERSION = "v0.15.0-sofascore"
 ISSUE_URL = "https://github.com/vasqued2/ha-teamtracker"
 DOMAIN = "teamtracker"
-ATTRIBUTION = "Data provided by ESPN"
+ATTRIBUTION = "Data provided by SofaScore"
 COORDINATOR = "coordinator"
 PLATFORMS = [Platform.SENSOR]
+
+# Sport options for configuration
+SPORT_OPTIONS = [
+    ("football", "Football (Soccer)"),
+    ("basketball", "Basketball"),
+    ("tennis", "Tennis"),
+    ("hockey", "Ice Hockey"),
+    ("american-football", "American Football"),
+    ("baseball", "Baseball"),
+    ("volleyball", "Volleyball"),
+    ("handball", "Handball"),
+    ("rugby", "Rugby"),
+    ("cricket", "Cricket"),
+    ("mma", "MMA"),
+    ("motorsport", "Motorsport"),
+]

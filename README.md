@@ -1,405 +1,242 @@
-# Real-time Sports Scores in Home Assistant
+# TeamTracker - SofaScore Edition
 
-This integration provides real-time scores for teams and athletes in multiple professional (NBA, NFL, NHL, MLB, MLS, and more), college (NCAA), and international (soccer, golf, tennis, racing, cricket) sports using the ESPN Scoreboard APIs, and creates a sensor with detailed data for the competition. Services exist to change and interact with the sensor.
+> **Fork notice.** This project is derived from
+> [vasqued2/ha-teamtracker](https://github.com/vasqued2/ha-teamtracker) and is
+> licensed under the **GNU General Public License v3.0** (see [LICENSE](LICENSE)),
+> the same licence as the upstream project. Copyright in the original work
+> remains with its authors.
+>
+> The data source has been changed from ESPN to **SofaScore**. Despite the
+> repository name, this integration does **not** use Sportradar.
+
+## 🔄 Major Update: ESPN → SofaScore Migration
 
-This integration can be used with the [ha-teamtracker-card](https://github.com/vasqued2/ha-teamtracker-card) to display the game information in the Home Assistant dashboard.
+This is a modified version of ha-teamtracker that uses **SofaScore** instead of ESPN as the data source.
 
-See the [Wiki](https://github.com/vasqued2/ha-teamtracker/wiki) for FAQs, troubleshooting advise, and custom API configurations that have been already been validated.  Please contribute to help others.
+### Why SofaScore?
 
-This integration is a fork of the excellent [ha-nfl](https://github.com/zacs/ha-nfl) custom component by @zacs.  Thanks for the starting place!
+- ✅ **Completely Free** - No API limits or rate restrictions
+- ✅ **All Leagues** - Track any team across all competitions without specifying leagues
+- ✅ **Global Coverage** - Better international sports coverage
+- ✅ **Live Updates** - Real-time match statistics and events
+- ✅ **No Configuration Complexity** - Simply enter team name and sport
 
-#### Version Compatibility
- - Releases for [ha-teamtracker](https://github.com/vasqued2/ha-teamtracker) and [ha-teamtracker-card](https://github.com/vasqued2/ha-teamtracker-card) follow the MAJOR.MINOR.PATCH convention.
- - All teamtracker and teamtracker-card releases with the same MAJOR and MINOR version numbers will be compatible, regardless of PATCH version.
- - For example, any teamtracker v0.2.x will be compatible with any teamtracker-card v0.2.y.
- - Compatibility is not guaranteed across different MAJOR or MINOR version numbers.
+### Key Differences from Original
 
-[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/vasqued2)
+| Feature | ESPN Version | SofaScore Version |
+|---------|--------------|-------------------|
+| Data Source | ESPN API | SofaScore API |
+| Configuration | League + Team ID | Team Name + Sport |
+| League Support | Pre-configured leagues | All leagues automatically |
+| API Limits | None (unofficial) | None (unofficial) |
+| International Coverage | Limited | Comprehensive |
+| Setup Complexity | Medium | Simple |
 
-## Supported Teams and Leagues
-TeamTracker will work for any of the hundreds of teams/leagues for which an ESPN scoreboard API exists.  
+## 🚀 Quick Start
 
-A small subset of the most popular teams/leagues have been pre-configured to simplify their setup.  This is referred to as native support.  Unfortunately, given the large number of teams/leagues for which APIs exist, it is impossible to provide native support for all of them.  
+### Installation
 
-The remaining teams/leagues are still supported, however they require a couple extra steps to set up.  This is referred to as configuring a Custom API.
+1. Copy the `custom_components/teamtracker` folder to your Home Assistant `custom_components` directory
+2. Restart Home Assistant
+3. Go to **Configuration** → **Integrations** → **Add Integration**
+4. Search for "TeamTracker"
 
-### Natively Supported (Pre-Configured) Sports / Leagues
+### Configuration
 
-The following leagues are supported natively:
-- Australian Football - AFL
-- Baseball - MLB
-- Basketball - NBA, WNBA, NCAAM, NCAAW, WNBA
-- Football - NFL, NCAAF, XFL
-- Golf - PGA
-- Hockey - NHL
-- MMA - UFC
-- U.S. Soccer - MLS, NWSL
-- International Soccer - BUND (German Bundesliga), CL (Champions League), CLA (Conmebol Libertadores), EPL (English Premiere League), LIGA (Spanish LaLiga), LIG1 (French Ligue 1), SERA (Italian Serie A), WC (World Cup), WWC (Women's World Cup)
-- Racing - F1, IRL
-- Tennis - ATP, WTA
-- Volleyball - NCAAVB, NCAAVBW
+The setup is now much simpler:
 
-### Sports / Leagues Supported by Configuring a Custom API
+1. **Team Name**: Enter the team name (e.g., "Manchester United", "Barcelona", "Lakers")
+2. **Sport**: Select from dropdown (Football/Soccer, Basketball, Tennis, etc.)
+3. **Name** (optional): Friendly name for your sensor
 
-It is possible to configure Team Tracker to use any existing ESPN Scoreboard API, not just the pre-configured leagues.  This is done by configuring a Custom API. 
+That's it! No need to specify leagues, conferences, or team IDs.
 
-Sensors with Custom APIs require more steps to set up, however once set up, they behave the same as a natively supported sensor.  There is no difference between a team playing in a natively supported soccer league or a non-natively supported soccer league other than the extra steps needed to initially set up the non-natively supported one.
+## 📖 How It Works
 
-Additionally, a Custom API can be configured using the `league_path` value of `all` to pull in soccer matches across multiple leagues and tournaments for the same team.
+### Team Search
 
-The [Custom APIs](https://github.com/vasqued2/ha-teamtracker?tab=readme-ov-file#custom-apis--how-to-determine-the-sport-path-and-league-path-sport_path-league_path) section below provides more details for setting up Custom API Configurations.
+When you configure a sensor, TeamTracker will:
+1. Search SofaScore for your team name in the selected sport
+2. Cache the team ID for faster subsequent updates
+3. Automatically fetch the next upcoming game for that team
 
-## Installation
+### Updates
 
-### Manual Installation
+- **Default**: Updates every 10 minutes
+- **Live Games**: Updates every 5 seconds during active games
+- **Pre-Game**: Updates every 5 seconds within 20 minutes of kickoff
 
-Clone or download this repository and copy the "teamtracker" directory to your "custom_components" directory in your config directory
+## 🏆 Supported Sports
 
-```<config directory>/custom_components/teamtracker/...```
-  
-### Installation via HACS
+- ⚽ **Football (Soccer)** - All leagues worldwide
+- 🏀 **Basketball** - NBA, Euroleague, etc.
+- 🎾 **Tennis** - ATP, WTA, Grand Slams
+- 🏒 **Ice Hockey** - NHL, KHL, etc.
+- 🏈 **American Football** - NFL, College
+- ⚾ **Baseball** - MLB, NPB, etc.
+- 🏐 **Volleyball** - All leagues
+- 🤾 **Handball** - All leagues
+- 🏉 **Rugby** - Union and League
+- 🏏 **Cricket** - International and domestic
+- 🥊 **MMA** - UFC and others
+- 🏎️ **Motorsport** - F1, MotoGP, etc.
 
-Use this button:
+## 📊 Available Data
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=vasqued2&repository=ha-teamtracker&category=integration)
+The sensor provides extensive data for each game:
 
-OR manually perform the followng steps:
+### Basic Information
+- Team names, logos, and colors
+- Opponent information
+- Match date and time
+- Countdown to kickoff
+- Venue and location
 
-1. Open the HACS section of Home Assistant.
-2. In Integrations, click the "+ EXPLORE & DOWNLOAD REPOSITORIES" button in the bottom right corner.
-3. In the window that opens search for "Team Tracker Card".
-4. Select "Team Tracker Card" from the list
-5. Select the "Download" button in the buttom right corner.
-6. Select "Download" from the window to download the button.
-7. When given the Option, Reload.
+### Live Game Data
+- Current score
+- Match status (PRE, IN, POST)
+- Clock/Time
+- Period/Quarter/Half
 
-
-## Configuration
-
-### Configuration Keys
-
-The following configuration keys can be used when setting up a Team Tracker sensor.
-
-| YAML Name | UI Label | Required | Description | Valid Values |
-| --- | --- | --- | --- | --- |
-| name | Friendly Name| No | Friendly name for the sensor | Any valid friendly name |
-| league_id | League | Yes | League ID | [See below](https://github.com/vasqued2/ha-teamtracker?tab=readme-ov-file#specify-the-league-league_id)|
-| team_id | Team / Athlete | Yes | Team Abbreviation, Team ID, Athlete Name, Regular Expression, or Wildcard | [See below](https://github.com/vasqued2/ha-teamtracker?tab=readme-ov-file#specify-the-team-team_id) |
-| api_language | None | No | Overrides default API language | [ISO language code](https://www.andiamo.co.uk/resources/iso-language-codes/) |
-| conference_id | Conference Number | Only if `league_id` is an NCAA football or basketball | Conference ID  | [See below](https://github.com/vasqued2/ha-teamtracker?tab=readme-ov-file#specify-the-conference---for-ncaa-sports-only-conference_id) |
-| sport_path | Sport Path | If `league_id` is `XXX` | Sport Path for Custom API | [See below](https://github.com/vasqued2/ha-teamtracker?tab=readme-ov-file#custom-apis--how-to-determine-the-sport-path-and-league-path-sport_path-league_path) |
-| league_path | League Path | If `league_id` is `XXX` | League Path for Custom API. The value `all` can be used for soccer teams to pull in all matches across all leagues and tournaments. The unique ESPN Team ID should be used for `team_id` when `all` is used. | [See below](https://github.com/vasqued2/ha-teamtracker?tab=readme-ov-file#custom-apis--how-to-determine-the-sport-path-and-league-path-sport_path-league_path) |
-
-
-#### Specify the League (league_id)
-
-The `league_id` configuration key is used the specify the league for the sensor.  The following values are valid:
-- ATP (Assc. of Tennis Professionals)
-- BUND (German Bundesliga)
-- CL (Champions League)
-- CLA (Conmebol Libertadores)
-- EPL (English Premiere League)
-- F1 (Formula 1 Racing)
-- IRL (Indy Racing League)
-- LIGA (Spanish LaLiga)
-- LIG1 (French Ligue 1)
-- MLB (Major League Baseball)
-- MLS (Major League Soccer)
-- NBA (National Basketball Assc.)
-- NCAAF (NCAA Football)
-- NCAAM (NCAA Men's Basketball)
-- NCAAW (NCAA Women's Basketball)
-- NCAAVB (NCAA Men's Volleyball)
-- NCAAVBW (NCAA Women's Volleyball)
-- NFL (National Football League)
-- NWSL (National Women's Soccer League)
-- PGA (Professional Golfers' Assc.)
-- SERA (Italian Serie A)
-- UFC (Ultimate Fighting Championship)
-- XFL (XFL)
-- WC (World Cup)
-- WNBA (Women's NBA)
-- WTA (Women's Tennis Assc.)
-- XXX (Custom: Specify Sport and League Path)
-
-Using `XXX` or selecting "Custom: Specify Sport and League Path" from the UI enables the creation of a Custom API and requires the `sport_path` and `league_path` configuration keys to be defined.
-
-#### Specify the Team (team_id)
-
-The `team_id` configuration key is used the specifiy the competitor to track for the sensor.  It can take the form of a Team Abbreviation, Team ID, Athlete Name, Regular Expression, or the Wildcard character (`*`).
-
-| Form | Description |
-| --- | --- |
-| Team Abbreviation | This is the 2-, 3- or 4-letter abbreviation (eg. "SEA" for Seattle or "NE" for New England) ESPN uses when space is limited.  You can generally find them at https://espn.com/ in the top scores UI, but they can also be found in other pages with team stats as well. |
-| Team ID | ESPN assigns a unique number to identify a team.  This unique number shows up in URLs and other locations. The Team ID should be used when using the `league_path` of `all` for soccer teams. |
-| Athlete Name | For sports involving individual athletes, you should use the athlete's name as the search string.  You should use as much as is needed to uniquely identify the desired athlete. |
-| RegEx | Regular expressions can be used to match team names, athlete names, and rosters in competitions like Doubles Tennis.  See below for an example. |
-| Wildcard | You can use the single `*` character as a Wildcard.  This will cause the sensor to match a team or athlete using sport-specific logic outlined below. |
-
-*RegEx*
-
-For doubles in tennis, rosters are used instead of team names and are in the format of `{Player 1} / {Player 2}`.  You can use a regular expression to match the roster.  As an example, if you do not know the order in which the players are listed on the roster, the regular expression `.*(?:NADAL|ALCARAZ).*/.*(?:NADAL|ALCARAZ).*` will match a doubles match with Nadal and Alcaraz regardless of which player is listed first.  The names are not case sensitive.
-
-*Wildcard*
-
-The Wildcard behavior varies based on the sport.
-| Sport | Behavior |
-| --- | --- |
-| Golf | Displays the current leader and competitor in second place |
-| MMA | Displays the current active fight or the next upcoming fight if none are active |
-| Racing | Displays the current leader and competitor in second place |
-| Tennis | Results will be unpredictable due to multiple tournaments and matches in progress at once |
-| Team Sports | Most useful for playoffs.  Will continually reset to display whatever team competition is in progress in the league.  Results will be unpredictable if multiple competitions are in progress at once |
-
-#### Override the API Language (api_language)
-
-NOTE:  Team Abbreviations and Names may vary based on your local language.  While rare, changing the language after a sensor is set up can cause it to stop working.
-
-TeamTracker will use your local language settings when calling the ESPN APIs.  Some languages are supported more robustly than others.  For example, one language may provide play-by-play updates while another will not.  For this reason, you can override your local language.  English appears to be the most robustly supported language.
-
-If you set up the sensor using the Home Assistant UI, you can add the override language code via the sensor's Configure button after it has been created.
-
-If you are setting up the sensor using YAML.  You can add the `api_language` configuration key to your YAML configuration.
-
-You should use a [standard ISO language code](https://www.andiamo.co.uk/resources/iso-language-codes/) when specifying an override.
-
-#### Specify the Conference - for NCAA Sports only (conference_id)
-
-The `conference_id` configuration key is used the specifiy the Conference for the sensor.  It should only be used for NCAA football and basketball.  Using it for other leagues or sports will cause a `NOT_FOUND` state.
-
-By default, NCAA football and basketball will only find a game if at least one of the teams playing is ranked.  In order to find games in which both teams are unranked, you must specify a Conference ID, which is a number used by ESPN to identify college conferences and other groups of teams.  Conferences ID's are not consistent across football and basketball.
-
-The following is a list of the college conferences and the corresponding number ESPN uses for their Conference ID.  For games involving at least one ranked team, no Conference ID is needed.
-
-| Conference | Football | Basketball | Baseball | Softball | W. Volleyball | W. Basketball |
-| --- | --- | --- | --- | --- | --- | --- |
-| ACC | 1 | 2 | 37 | 40 | 49 | 2 |
-| Big 12 | 4 | 8 | 44 | 45 | 51 | 8 |
-| Big Ten | 5 | 7 | 48 | 49 | 54 | 7 |
-| C-USA | 12 | 11 | 50 |  | 79 | 11 |
-| FBS Independent | 18 |  |  |  |
-| Independent |  | 43 | 53 |  |
-| MAC | 15 | 14 |  |  | 62 | 14 |
-| Mountain West | 17 | 44 |  |  |  | 44 |
-| MVC |  | 18 |  |  | 64 | 18 |
-| PAC-12 | 9 | 21 | 46 | 47 | 69 |
-| SEC | 8 | 23 | 27 | 32 | 71 | 23 |
-| Sun Belt | 37 | 27 |  |  | 75 | 27 |
-| America East |  | 1 |  |  | 46 | 1|
-| American | 151 | 62 |  |  | 57 | 62 |
-| ASUN | 176 | 46 | 56 |  | 50 | 46 |
-| Atlantic 10 |  | 3 |  |  | 48 | 3 |
-| Big East |  | 4 |  |  | 52 | 4 |
-| Big Sky | 20 | 5 |  |  |  | 5 |
-| Big South | 40 | 6 |  |  | 13 | 6 |
-| Big West |  | 9 |  |  | 55 | 9 |
-| CAA | 18 | 10 |  |  | 56 | 10 |
-| Horizon |  | 45 |  |  | 59 | 45 |
-| Ivy | 22 | 12 |  |  | 76 | 12 |
-| MAAC |  | 13 | 52 |  | 61 | 13 |
-| MEAC | 24 | 16 |  |  | 63 | 16 |
-| MVFC | 21 |  |  |  |
-| NEC | 25 | 19 | 51 |  | 66 | 19 |
-| OVC | 26 | 20 |  |  | 26 | 20 |
-| OVC-Big South | 179 |  |  |  |
-| Patriot | 27 | 22 |  |  | 70 | 22 |
-| Pioneer | 28 |  |  |  |
-| SWAC | 31 | 26 |  |  | 74 | 26 |
-| Southern | 29 | 24 |  |  | 72 | 24 |
-| Southland | 30 | 25 | 54 |  |  | 25 |
-| Summit |  | 49 |  |  | 73, 77 (legacy) | 47 |
-| WAC | 16 | 30 |  |  |  | 30 |
-| WCC |  | 29 | 55 |  |  | 29 |
-
-The following identifiers are also valid:
-| Additional Groupings | Football Conference ID | Basketball Conference ID | Description |
-| --- | --- | --- | --- |
-| FBS (1-A) | 80 |  | Subset of unranked FBS games |
-| FCS (1-AA) | 81 |  | Subset of FCS games |
-| DIVII/III | 35 |  | Subset of D2/D3 games |
-| D1 |  | 50 | Subset of unranked D1 games |
-| D1 |  | 100 | NCAA Tournament |
-
-#### Custom APIs:  How to Determine the Sport Path and League Path (sport_path, league_path)
-
-Setting the `league_id` configuration key to `XXX` or selecting "Custom: Specify Sport and League Path" from the UI, invokes the Custom API Configuration mode. 
- This requires you to set the `sport_path` and `league_path` configuration keys.  This section explains how to determine the correct values for these keys.
-
-All ESPN APIs use a URL in the following format:
-https://site.api.espn.com/apis/site/v2/sports/{SPORT_PATH}/{LEAGUE_PATH}/scoreboard
-where {SPORT_PATH} is the sport and {LEAGUE_PATH} is the league that the team plays in.
-
-For example, for the NFL, the URL is https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard
-
-The [Custom API Configuration section of the Wiki](https://github.com/vasqued2/ha-teamtracker/wiki/Custom-API-Configurations) contains more details on how to determine the {SPORT_PATH} and {LEAGUE_PATH} as well as some that have been verified to work and some that are known to not be compatible.  Please update the Wiki if you try others.
-
-The [FAQ in the Wiki](https://github.com/vasqued2/ha-teamtracker/wiki/Frequently-Asked-Questions) also contains an explanation of the types of sports that work with the teamtracker integration and those that currently do not.
-
-Once you have used the resources referenced above to determine the correct values to use for `sport_path` and `league_path`, you should use those values in the YAML or UI configuration.
-
-
-### Configuration via the "Configuration->Integrations" section of the Home Assistant UI
-
-1. On the Integrations page, select the "+ Add Integration" button.
-2. Search for the integration labeled "Team Tracker" and select it.  
-3. Select the desired League from the League List.  Select "Custom:  Specific sport and league path" to create a Custom API.
-4. Enter a value for team's ID in the UI prompt. This can be a the team abbreviation, team ID, athlete name, wildcard, or a regex as explained in the [Team ID](https://github.com/vasqued2/ha-teamtracker?tab=readme-ov-file#specify-the-team-team_id) section.
-5. If NCAA football or basketball, enter the Conference ID from [Conference ID](https://github.com/vasqued2/ha-teamtracker?tab=readme-ov-file#specify-the-conference---for-ncaa-sports-only-conference_id) section if desired.  
-6. You can also enter a friendly name. If you keep the default, your sensor will be `sensor.team_tracker`, otherwise it will be `sensor.friendly_name_you_entered`.
-7. If you are setting up a Custom API, a second window will be displayed.
-8. Enter the value for the Sport Path for the Custom API.
-9. Enter the value for the League Path for the Custom API.
-
-Once the sensor is set up with the UI, you can use the Options Menu to override the API language if desired.
-
-### Manual Configuration in your `configuration.yaml` file
-
-To create a sensor via YAML, add the following configuration to your sensor definitions.  Enclose the values in quotes to avoid unrealized conflicts w/ predefined terms in YAML (i.e. NO being interpreted as No):
-
-```
-- platform: teamtracker
-  league_id: "NFL"
-  team_id: "NO"
+### Statistics (when available)
+- Shots on target
+- Total shots
+- Ball possession
+- Win probability
+
+### URLs
+- Direct link to match on SofaScore
+- Team logos
+- League logos
+
+## 🔧 Advanced Usage
+
+### Service: teamtracker.call_api
+
+Dynamically change what team/sport a sensor is tracking:
+
+```yaml
+service: teamtracker.call_api
+data:
+  sport_path: "football"
+  league_path: ""  # Not used in SofaScore mode
+  team_id: "Real Madrid"
+  entity_id: sensor.team_tracker
 ```
 
-After you restart Home Assistant then you should have a new sensor called `sensor.team_tracker` in your system.
+### Automation Example
 
-You can overide the sensor default name (`sensor.team_tracker`) to one of your choosing by setting the `name` option:
+Track your favorite team and get notifications:
 
-```
-- platform: teamtracker
-  league_id: "NFL"
-  team_id: "NO"
-  name: "Saints"
-```
+```yaml
+automation:
+  - alias: "Game Starting Soon"
+    trigger:
+      - platform: state
+        entity_id: sensor.my_team
+        attribute: state
+        to: "PRE"
+    condition:
+      - condition: template
+        value_template: "{{ state_attr('sensor.my_team', 'kickoff_in') == 'in 30 minutes' }}"
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "{{ state_attr('sensor.my_team', 'team_name') }} plays in 30 minutes!"
 
-Using the configuration example above the sensor will then be called "sensor.saints".
-
-To set a Conference ID for an NCAA football or basketball team, use the following:
-
-```
-  - platform: teamtracker
-    league_id: "NCAAF"
-    team_id: "BGSU"
-    conference_id: 15
-    name: "Falcons"
-```
-
-To set up a Custom API Configuration, set the league_id to 'XXX' and enter the desired values for sport_path and league_path.
-```
-- platform: teamtracker
-  league_id: "XXX"
-  team_id: "OSU"
-  sport_path: "volleyball"
-  league_path: "womens-college-volleyball"
-  name: "Buckeyes_VB"
-```
-
-To override the API language to Spanish, set the api_lang to 'esp'.
-```
-- platform: teamtracker
-  league_id: "NFL"
-  team_id: "NO"
-  name: "Saints"
-  api_language: esp
+  - alias: "Goal Scored"
+    trigger:
+      - platform: state
+        entity_id: sensor.my_team
+        attribute: team_score
+    condition:
+      - condition: state
+        entity_id: sensor.my_team
+        attribute: state
+        state: "IN"
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "GOAL! {{ state_attr('sensor.my_team', 'team_score') }} - {{ state_attr('sensor.my_team', 'opponent_score') }}"
 ```
 
-## Sensor Data
+## 🎨 Display Card
 
-### State
-The sensor is pretty simple: the main state is `PRE`, `IN`, `POST`, `BYE` or `NOT_FOUND`, but there are attributes for pretty much all aspects of the game, when available. State definitions are as you'd expect:
-- `PRE`: The game is in pre-game state. This happens when ESPN publishes the pre-game info via their API.  The lead time varies based on the league.
-- `IN`: The game is in progress.
-- `POST`: The game has completed. 
-- `BYE`: Your given team has a bye week this week. Note that attributes available are limited in this case (only abreviation, name, logo, and last updated time will be available). 
-- `NOT_FOUND`: There is no game found for your team, nor is there a bye. This can happen if an invalid league or team ID has been entered.  It can also happen at the end of the season or mid-season when ESPN hasn't published the pre-game info for the next game.  See the [Wiki for help in troubleshooting tips](https://github.com/vasqued2/ha-teamtracker/wiki/Troubleshooting:--State-=--NOT_FOUND) when you believe the sensor is incorrectly in the `NOT_FOUND` state.
+This integration works great with the **ha-teamtracker-card** for visual display:
 
-### Attributes
-The attributes available will change based on the sensor's state, a small number are always available (league, team abbreviation, team name, and logo), but otherwise the attributes only populate when in the current state. The table below lists which attributes are available in which states. 
+```yaml
+type: custom:teamtracker-card
+entity: sensor.my_team
+```
 
-Some attributes are only available for certain sports.
+## 🐛 Troubleshooting
 
-| Name | Value | Relevant States |
-| --- | --- | --- |
-| `sport` | Name of the sport for the sensor | `PRE` `IN` `POST` |
-| `sport_path` | The `sport_path` for the sensor used to generate the API URL | `PRE` `IN` `POST` |
-| `league` | Name of the league for the sensor | `PRE` `IN` `POST` |
-| `league_path` | The `league_path` for the sensor used to generate the API URL | `PRE` `IN` `POST` |
-| `league_logo` | URL for the logo of the league | `PRE` `IN` `POST` |
-| `season` | Identifies the type of season (i.e. pre, regular, post) | `PRE` `IN` `POST` |
-| `date` | Date and time of the game | `PRE` `IN` `POST` |
-| `kickoff_in` | Human-readable string for how far away the game is (eg. "in 30 minutes" or "tomorrow") |  `PRE` `IN` `POST` |
-| `quarter` | The current quarter of gameplay | `IN` |
-| `clock` | The clock value within the quarter (should never be higher than 15:00).  Inning (MLB only). | `IN` |
-| `event_name` | The name of the event being played (eg. "The Masters") | `PRE` `IN` `POST` |
-| `series_summary` | If event is part of a series, provides a summary of the series | `PRE` `IN` `POST` |
-| `event_url` | An ESPN URL for the event | `PRE` `IN` `POST` |
-| `venue` | The name of the stadium where the game is being played (eg. "Arrowhead Stadium") | `PRE` `IN` `POST` |
-| `location` | The city and state where the game is being played (eg. "Pittsburgh, PA") | `PRE` `IN` `POST` |
-| `tv_network` | The TV network where you can watch the game (eg. "NBC" or "NFL"). Note that if there is a national feed, it will be listed here, otherwise the local affiliate will be listed. | `PRE` `IN` `POST` |
-| `odds` | The betting odds for the game (eg. "PIT -5.0") | `PRE` |
-| `overunder` | The over/under betting line for the total points scored in the game (eg. "42.5"). | `PRE` |
-| `possession` | The ID of the team in possession of the ball. This will correlate to `team_id` or `opponent_id` below. Note that this value will be null in between posessions (after a score, etc). | `IN` |
-| `last_play` | Sentence describing the most recent play, usually including the participants from both offense and defense, and the resulting yards. Note this can be null on posession changes or in between quarters. | `IN` |
-| `down_distance_text` | String for the down and yards to go (eg. "2nd and 7"). | `IN` |
-| `outs` | Number of outs (MLB only). | `IN` |
-| `balls` | Number of balls (MLB only)). | `IN` |
-| `strikes` | Number of strikes (MLB only). | `IN` |
-| `on_first` | Baserunner on first base (MLB only). | `IN` |
-| `on_second` | Baserunner on second base (MLB only). | `IN` |
-| `on_third` | Baserunner on third base (MLB only). | `IN` |
-| `team_total_shots` | Total shots by team (MLS only). | `IN` |
-| `team_shots_on_target` | Shots on net by team (MLS only). | `IN` |
-| `team_sets_won` | Sets won by team. | `IN` |
-| `opponent_total_shots` | Total shots by opponent (MLS only). | `IN` |
-| `opponent_shots_on_target` | Shots on net by opponent (MLS only). | `IN` |
-| `opponent_sets_won` | Sets won by opponent. | `IN` |
-| `team_abbr` | The abbreviation for your team (ie. `SEA` for the Seahawks). | `PRE` `IN` `POST` `BYE` |
-| `team_id` | A numeric ID for your team, used to match `possession` above. | `PRE` `IN` `POST` |
-| `team_name` | Your team's name (eg. "Seahawks"). Note this does not include the city name. | `PRE` `IN` `POST` `BYE` |
-| `team_long_name` | Your team's long name (eg. "Seatle Seahawks"). Note this includes the city name. | `PRE` `IN` `POST` `BYE` |
-| `team_record` | Your team's current record (eg. "2-3"). | `PRE` `IN` `POST` |
-| `team_rank` | Your team's current rank (null if unranked or does not apply). | `PRE` `IN` `POST` |
-| `team_conference_id` | Your team's conference ID. | `PRE` `IN` `POST` |
-| `team_homeaway` | Your team's home/away status. Either `home` or `away`. | `PRE` `IN` `POST` |
-| `team_logo` | A URL for a 500px wide PNG logo for the team. | `PRE` `IN` `POST` `BYE` |
-| `team_url` | An ESPN URL for the team. | `PRE` `IN` `POST` `BYE` |
-| `team_colors` | An array with two hex colors. The first is your team's primary color, and the second is their secondary color. Unless you're the Browns, in which case they are the same. | `PRE` `IN` `POST` |
-| `team_score` | Your team's score. An integer. | `IN` `POST` |
-| `team_win_probability` | The real-time chance your team has to win, according to ESPN. A percentage, but presented as a float. Note that this value can become null in between posession changes. | `IN` |
-| `team_winner` | Flag indicating whether the team has won the competition or not. | `POST` |
-| `team_timeouts` | The number of remaining timeouts your team has. | `PRE` `IN` `POST` |
-| `opponent_abbr` | The abbreviation for your opponent (ie. `SEA` for the Seahawks). | `PRE` `IN` `POST` `BYE` |
-| `opponent_id` | A numeric ID for your opponent, used to match `possession` above. | `PRE` `IN` `POST` |
-| `opponent_name` | Your opponent's name (eg. "Seahawks"). Note this does not include the city name. | `PRE` `IN` `POST` `BYE` |
-| `opponent_long_name` | Your opponent's long name (eg. "Seatle Seahawks"). Note this includes the city name. | `PRE` `IN` `POST` `BYE` |
-| `opponent_record` | Your opponent's current record (eg. "2-3"). | `PRE` `IN` `POST` |
-| `opponent_rank` | Your opponent's current rank (null if unranked or does not apply). | `PRE` `IN` `POST` |
-| `opponent_conference_id` | Your opponent's conference ID. | `PRE` `IN` `POST` |
-| `opponent_homeaway` | Your opponent's home/away status. Either `home` or `away`. | `PRE` `IN` `POST` |
-| `opponent_logo` | A URL for a 500px wide PNG logo for the opponent. | `PRE` `IN` `POST` `BYE` |
-| `opponent_url` | An ESPN URL for the opponent. | `PRE` `IN` `POST` `BYE` |
-| `opponent_colors` | An array with two hex colors. The first is your opponent's primary color, and the second is their secondary color. | `PRE` `IN` `POST` |
-| `opponent_score` | Your opponent's score. An integer. | `IN` `POST` |
-| `opponent_win_probability` | The real-time chance your opponent has to win, according to ESPN. A percentage, but presented as a float. Note that this value can become null in between posession changes. | `IN` |
-| `opponent_winner` | Flag indicating whether the opponent has won the competition or not. | `POST` |
-| `opponent_timeouts` | The number of remaining timeouts your opponent has. | `PRE` `IN` `POST` |
-| `last_update` | A timestamp for the last time data was fetched for the game. If you watch this in real-time, you should notice it updating every 10 minutes, except for during the game (and for the ~20 minutes pre-game) when it updates every 5 seconds. | `PRE` `IN` `POST` `BYE` |
-| `api_message` | A message giving information to help troubleshoot when the sensor is state  | `PRE` `IN` `POST` `BYE` `NOT_FOUND` |
-| `api_url` | The URL of the ESPN API call | `PRE` `IN` `POST` `BYE` `NOT_FOUND` |
+### Team Not Found
 
+If your team isn't found:
+- Try different name variations (e.g., "Man United" vs "Manchester United")
+- Make sure you selected the correct sport
+- Check the logs for the exact search being performed
 
-## Services
+### No Upcoming Games
 
-TeamTracker supports the following services.
+- The sensor will show "NOT_FOUND" if there are no scheduled games
+- This is normal during off-season
+- The sensor will automatically update when games are scheduled
 
-| Service | Input Parameters | Description |
-| --- | --- | --- |
-| call_api | sport_path, league_path, team_id, conference_id (optional) | Dynamically changes the teamtracker sensor based on the input parameters, calls the ESPN API, and refreshes the sensor attributes. Sensor will revert to original configuration on reboot. |
+### Statistics Not Showing
 
-NOTE: The functionality and input parameters of the `call_api` service are subject to change as new uses emerge. If you have ideas or suggestions for specific use cases, open an Issue so they can be tracked.
+- Statistics are only available during live games
+- Some sports may have limited statistics
+- Check the SofaScore website to see what data is available
 
-Additional details available on the Services tab in Developer Tools.
+## 📝 Known Limitations
 
-## Tutorials
-You will find a german tutorial how to use this integration here: https://youtu.be/CYK7JrNmvfg, and https://youtu.be/hh3kCk-f2vY (Created by Tristan's Smartes Heim)
+1. **Unofficial API**: SofaScore doesn't provide an official API. While this version uses proper headers and respectful request patterns, there's always a small risk of blocks or changes.
+
+2. **Historical Data**: Only shows next upcoming game, not past games (use the SofaScore API's "last event" endpoint if needed).
+
+3. **Multiple Games**: If a team has multiple games on the same day, only the next one is shown.
+
+4. **Statistics Availability**: Not all sports/leagues provide the same level of detail.
+
+## 🔒 Privacy & Ethics
+
+- This integration uses SofaScore's unofficial API
+- Requests include proper User-Agent headers
+- Rate limiting is implemented (5s for live games, 10min otherwise)
+- No personal data is collected or transmitted
+- All data requests are read-only
+
+## 🤝 Contributing
+
+Found a bug or want to add a feature?
+1. Open an issue describing the problem/feature
+2. Submit a pull request with your changes
+3. Ensure all existing functionality still works
+
+## 📜 License
+
+This project maintains the same license as the original ha-teamtracker.
+
+## 🙏 Credits
+
+- Original **ha-teamtracker** by @vasqued2
+- Original **ha-nfl** by @zacs
+- SofaScore for providing comprehensive sports data
+- Home Assistant community
+
+## ⚠️ Disclaimer
+
+This is an unofficial integration using SofaScore's API. It is not affiliated with, endorsed by, or connected to SofaScore or its parent companies. Use at your own discretion.
+
+## 📞 Support
+
+- **Issues**: GitHub Issues
+- **Questions**: GitHub Discussions
+- **Original Project**: [ha-teamtracker](https://github.com/vasqued2/ha-teamtracker)
+
+---
+
+**Version**: 0.15.0-sofascore
+**Last Updated**: 2025-01-22

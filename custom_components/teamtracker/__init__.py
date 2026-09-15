@@ -1,15 +1,10 @@
 """ TeamTracker Team Status """
 import asyncio
-from datetime import date, datetime, timedelta, timezone
-import json
+from datetime import datetime, timezone
 import locale
 import logging
-import os
 
-import aiofiles
-import aiohttp
 import arrow
-from async_timeout import timeout
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
@@ -23,7 +18,6 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .clear_values import async_clear_values
 from .const import (
-    API_LIMIT,
     CONF_API_LANGUAGE,
     CONF_CONFERENCE_ID,
     CONF_LEAGUE_ID,
@@ -31,8 +25,6 @@ from .const import (
     CONF_SPORT_PATH,
     CONF_TEAM_ID,
     COORDINATOR,
-    DEFAULT_KICKOFF_IN,
-    DEFAULT_LAST_UPDATE,
     DEFAULT_LEAGUE,
     DEFAULT_LOGO,
     DEFAULT_TIMEOUT,
@@ -41,14 +33,13 @@ from .const import (
     LEAGUE_MAP,
     PLATFORMS,
     DEFAULT_REFRESH_RATE,
+    POST_GAME_HOLD,
     RAPID_REFRESH_RATE,
     SERVICE_NAME_CALL_API,
-    URL_HEAD,
-    URL_TAIL,
-    USER_AGENT,
     VERSION,
 )
-from .event import async_process_event
+from .sofascore_api import SofaScoreAPI, SofaScoreApiError
+from .sofascore_processor import async_process_sofascore_event, async_get_sofascore_statistics
 
 _LOGGER = logging.getLogger(__name__)
 # team_prob = {}
@@ -210,14 +201,15 @@ class TeamTrackerDataUpdateCoordinator(DataUpdateCoordinator):
     data_cache = {}
     last_update = {}
     c_cache = {}
+    team_cache = {}  # Cache for team_name -> team_id mapping
 
     def __init__(self, hass, config, entry: ConfigEntry=None):
         """Initialize."""
         self.name = config[CONF_NAME]
         self.api_url = ""
-        self.league_id = config[CONF_LEAGUE_ID]
-        self.league_path = config[CONF_LEAGUE_PATH]
-        self.sport_path = config[CONF_SPORT_PATH]
+        self.league_id = config.get(CONF_LEAGUE_ID, "")
+        self.league_path = config.get(CONF_LEAGUE_PATH, "")
+        self.sport_path = config.get(CONF_SPORT_PATH, "football")
         self.team_id = config[CONF_TEAM_ID]
         self.conference_id = ""
         if CONF_CONFERENCE_ID in config.keys():
@@ -227,6 +219,11 @@ class TeamTrackerDataUpdateCoordinator(DataUpdateCoordinator):
         self.config = config
         self.hass = hass
         self.entry = entry #None if setup from YAML
+
+        # Initialize SofaScore API client
+        self.sofascore_api = SofaScoreAPI(timeout=DEFAULT_TIMEOUT)
+        self.sofascore_team_id = None  # Will be populated after team search
+        self.sofascore_event_id = None  # Fixture currently being tracked
 
         super().__init__(hass, _LOGGER, name=self.name, update_interval=DEFAULT_REFRESH_RATE)
         _LOGGER.debug(
@@ -263,16 +260,21 @@ class TeamTrackerDataUpdateCoordinator(DataUpdateCoordinator):
         """update team information when call_api service is called."""
 
         self.sport_path = sport_path
-        self.league_path = league_path
-        self.league_id = "XXX"
-        self.team_id = team_id
-        self.conference_id = conference_id
+        # league_path is ignored in SofaScore mode
+        self.team_id = team_id  # This is the team name in SofaScore mode
 
-        lang = self.get_lang()
-        key = sport_path + ":" + league_path + ":" + conference_id + ":" + lang
-
+        # Clear cache for this team
+        key = f"{team_id}:{sport_path}"
         if key in TeamTrackerDataUpdateCoordinator.data_cache:
             del TeamTrackerDataUpdateCoordinator.data_cache[key]
+
+        # Clear team ID cache to force re-search
+        team_cache_key = f"{team_id}:{sport_path}"
+        if team_cache_key in TeamTrackerDataUpdateCoordinator.team_cache:
+            del TeamTrackerDataUpdateCoordinator.team_cache[team_cache_key]
+
+        # Forget the fixture we were following so the new team resolves fresh
+        self.sofascore_event_id = None
 
 
     #
@@ -280,7 +282,7 @@ class TeamTrackerDataUpdateCoordinator(DataUpdateCoordinator):
     #
     async def _async_update_data(self):
         """Update data."""
-        async with timeout(DEFAULT_TIMEOUT):
+        async with asyncio.timeout(DEFAULT_TIMEOUT):
             try:
                 data = await self.async_update_game_data(self.config, self.hass)
 
@@ -309,12 +311,12 @@ class TeamTrackerDataUpdateCoordinator(DataUpdateCoordinator):
 
         sensor_name = self.name
         sport_path = self.sport_path
-        league_path = self.league_path
-        conference_id = self.conference_id
+        team_name = self.team_id
 
         lang = self.get_lang()
 
-        key = sport_path + ":" + league_path + ":" + conference_id + ":" + lang
+        # Cache key is now based on team and sport
+        key = f"{team_name}:{sport_path}"
 
         #
         #  Use cache if not expired
@@ -328,17 +330,14 @@ class TeamTrackerDataUpdateCoordinator(DataUpdateCoordinator):
             if now < expiration:
                 data = self.data_cache[key]
                 values = await self.async_update_values(config, hass, data, lang)
-                if values["api_message"]:
+                if values.get("api_message"):
                     values["api_message"] = "Cached data: " + values["api_message"]
                 else:
                     values["api_message"] = "Cached data"
                 return values
 
         #
-        #  Call the API
-        #  Get the language based on the locale
-        #    Then override it if there is a value in frontend_storage for the selected language
-        #      (it usually takes about a minute after reboot for frontend_storage to be populated)
+        #  Call the SofaScore API
         #
 
         data, file_override = await self.async_call_api(config, hass, lang)
@@ -346,203 +345,231 @@ class TeamTrackerDataUpdateCoordinator(DataUpdateCoordinator):
         self.data_cache[key] = data
         self.last_update[key] = values["last_update"]
 
-        if file_override:
-            path = "/share/tt/results/" + sensor_name + ".json"
-            if not os.path.exists(path):
-                _LOGGER.debug("%s: Creating results file '%s'", sensor_name, path)
-                values[
-                    "last_update"
-                ] = DEFAULT_LAST_UPDATE  # set to fixed time for compares
-                values["kickoff_in"] = DEFAULT_KICKOFF_IN
-                try:
-                    with open(path, "w", encoding="utf-8") as convert_file:
-                        convert_file.write(json.dumps(values, indent=4))
-                except:
-                    _LOGGER.debug(
-                        "%s: Error creating results file '%s'", sensor_name, path
-                    )
         return values
 
     #
-    #  Call the API (or file override) and get the data returned by it
+    #  Call the SofaScore API to get team's next event
     #
     async def async_call_api(self, config, hass, lang) -> dict:
-        """Query API for status."""
+        """Query SofaScore API for team's next event."""
 
-        headers = {"User-Agent": USER_AGENT, "Accept": "application/ld+json"}
         sensor_name = self.name
+        team_name = self.team_id  # In SofaScore mode, team_id is actually the team name
+        sport = self.sport_path
 
         data = None
-        file_override = False
 
-        sport_path = self.sport_path
-        league_path = self.league_path
-
-        url_parms = "?lang=" + lang[:2] + "&limit=" + str(API_LIMIT)
-
-        if sport_path not in ("tennis", "baseball"):
-            d1 = (date.today() - timedelta(days=1)).strftime("%Y%m%d")
-            d2 = (date.today() + timedelta(days=5)).strftime("%Y%m%d")
-            url_parms = url_parms + "&dates=" + d1 + "-" + d2
-
-        if self.conference_id:
-            url_parms = url_parms + "&groups=" + self.conference_id
-            if self.conference_id == "9999":
-                file_override = True
-        team_id = self.team_id.upper()
-        url = URL_HEAD + sport_path + "/" + league_path + URL_TAIL + url_parms
-
-        if file_override:
-            _LOGGER.debug("%s: Overriding API for '%s'", sensor_name, team_id)
-            file_path = "/share/tt/all.json"
-            if not os.path.exists(file_path):
-                file_path = "tests/tt/all.json"
-            async with aiofiles.open(file_path, mode="r") as f:
-                contents = await f.read()
-            data = json.loads(contents)
-        else:
-            async with aiohttp.ClientSession() as session:
-                try:
-                    async with session.get(url, headers=headers) as r:
-                        _LOGGER.debug(
-                            "%s: Calling API for '%s' from %s",
-                            sensor_name,
-                            team_id,
-                            url,
-                        )
-                        if r.status == 200:
-                            data = await r.json()
-                except:
-                    data = None
-
-            num_events = 0
-            if data is not None:
+        try:
+            # Check if we have cached team ID
+            cache_key = f"{team_name}:{sport}"
+            if cache_key in TeamTrackerDataUpdateCoordinator.team_cache:
+                self.sofascore_team_id = TeamTrackerDataUpdateCoordinator.team_cache[cache_key]
                 _LOGGER.debug(
-                    "%s: Data returned for '%s' from %s",
+                    "%s: Using cached team ID %s for '%s'",
                     sensor_name,
-                    team_id,
-                    url,
+                    self.sofascore_team_id,
+                    team_name,
                 )
-                try:
-                    num_events = len(data["events"])
-                except:
-                    num_events = 0
+            else:
+                # Search for team
+                _LOGGER.debug(
+                    "%s: Searching for team '%s' in sport '%s'",
+                    sensor_name,
+                    team_name,
+                    sport,
+                )
 
-            _LOGGER.debug(
-                "%s: Num_events '%d' from %s",
-                sensor_name,
-                num_events,
-                url,
-            )
-            if num_events == 0:
-                url_parms = "?lang=" + lang[:2]
-                if self.conference_id:
-                    url_parms = url_parms + "&groups=" + self.conference_id
-                    if self.conference_id == "9999":
-                        file_override = True
+                team_data = await self.sofascore_api.find_team_by_name(team_name, sport)
 
-                url = URL_HEAD + sport_path + "/" + league_path + URL_TAIL + url_parms
-
-                async with aiohttp.ClientSession() as session:
-                    try:
-                        async with session.get(url, headers=headers) as r:
-                            _LOGGER.debug(
-                                "%s: Calling API without date constraint for '%s' from %s",
-                                sensor_name,
-                                team_id,
-                                url,
-                            )
-                            if r.status == 200:
-                                data = await r.json()
-                    except:
-                        data = None
-
-                num_events = 0
-                if data is not None:
-                    _LOGGER.debug(
-                        "%s: Data returned for '%s' from %s",
+                if team_data:
+                    self.sofascore_team_id = team_data.get("id")
+                    TeamTrackerDataUpdateCoordinator.team_cache[cache_key] = self.sofascore_team_id
+                    _LOGGER.info(
+                        "%s: Found team '%s' with ID %s",
                         sensor_name,
-                        team_id,
-                        url,
+                        team_data.get("name"),
+                        self.sofascore_team_id,
+                    )
+                else:
+                    _LOGGER.warning(
+                        "%s: Could not find team '%s' in sport '%s'",
+                        sensor_name,
+                        team_name,
+                        sport,
+                    )
+                    self.api_url = "SofaScore Team Search"
+                    return None, False
+
+            # Resolve the fixture to show.
+            #
+            # Cheap path first: if we are already following a fixture, poll
+            # that single event (~3 KB). Its status carries the match from
+            # notstarted -> inprogress -> finished, so kickoff is detected
+            # without scanning any feed.
+            if self.sofascore_team_id:
+                data = await self._async_get_tracked_event(sensor_name)
+
+                if data is None:
+                    data = await self._async_resolve_event(sensor_name, team_name, sport)
+
+                self.api_url = f"SofaScore API - Team ID: {self.sofascore_team_id}"
+
+
+        except SofaScoreApiError:
+            # Reachability/blocking problem - let it bubble up so the
+            # coordinator raises UpdateFailed and HA marks the sensor
+            # unavailable, rather than silently showing "no game".
+            self.api_url = "SofaScore API Error"
+            raise
+        except Exception as error:
+            _LOGGER.error(
+                "%s: Error calling SofaScore API for '%s': %s",
+                sensor_name,
+                team_name,
+                error,
+            )
+            data = None
+            self.api_url = "SofaScore API Error"
+
+        return data, False
+
+    @staticmethod
+    def _is_finished(event) -> bool:
+        """True if the fixture is over (finished, postponed or cancelled)."""
+        status_type = (event.get("status", {}).get("type") or "").lower()
+        return status_type in ("finished", "canceled", "cancelled", "postponed")
+
+    async def _async_get_tracked_event(self, sensor_name):
+        """Poll the fixture we are already following.
+
+        Returns the event, or None when we should look for a different one.
+        """
+        if not self.sofascore_event_id:
+            return None
+
+        event = await self.sofascore_api.get_event(self.sofascore_event_id)
+
+        if not event:
+            _LOGGER.debug(
+                "%s: Tracked event %s no longer available, re-resolving",
+                sensor_name,
+                self.sofascore_event_id,
+            )
+            self.sofascore_event_id = None
+            return None
+
+        if self._is_finished(event):
+            # Keep the result on the sensor for a while, then move on to the
+            # next fixture.
+            start = event.get("startTimestamp")
+            if start:
+                ended_around = datetime.fromtimestamp(start, tz=timezone.utc)
+                if datetime.now(timezone.utc) - ended_around > POST_GAME_HOLD:
+                    _LOGGER.debug(
+                        "%s: Tracked event %s finished and hold expired, re-resolving",
+                        sensor_name,
+                        self.sofascore_event_id,
+                    )
+                    self.sofascore_event_id = None
+                    return None
+
+        return event
+
+    async def _async_resolve_event(self, sensor_name, team_name, sport):
+        """Find which fixture to follow, and remember it.
+
+        Order matters: a match that is in progress has already left the
+        "next events" list, so the live feed is checked first. The most
+        recent match is the final fallback so a just-finished result is not
+        lost between fixtures.
+        """
+        event = await self.sofascore_api.get_team_live_event(
+            self.sofascore_team_id, sport
+        )
+
+        if event:
+            _LOGGER.info(
+                "%s: Found LIVE event (ID: %s) for team '%s'",
+                sensor_name,
+                event.get("id"),
+                team_name,
+            )
+        else:
+            event = await self.sofascore_api.get_team_next_event(self.sofascore_team_id)
+
+            if event:
+                _LOGGER.debug(
+                    "%s: Following next event (ID: %s) for team '%s'",
+                    sensor_name,
+                    event.get("id"),
+                    team_name,
+                )
+            else:
+                event = await self.sofascore_api.get_team_last_event(
+                    self.sofascore_team_id
+                )
+                if event:
+                    _LOGGER.debug(
+                        "%s: No upcoming event for '%s', showing most recent (ID: %s)",
+                        sensor_name,
+                        team_name,
+                        event.get("id"),
                     )
 
-                    try:
-                        num_events = len(data["events"])
-                    except:
-                        num_events = 0
+        if event:
+            self.sofascore_event_id = event.get("id")
+        else:
+            self.sofascore_event_id = None
+            _LOGGER.debug("%s: No event found for team '%s'", sensor_name, team_name)
 
-                _LOGGER.debug(
-                    "%s: Num_events '%d' from %s",
-                    sensor_name,
-                    num_events,
-                    url,
-                )
-
-            if num_events == 0:
-                url_parms = ""
-                if self.conference_id:
-                    url_parms = url_parms + "?groups=" + self.conference_id
-                    if self.conference_id == "9999":
-                        file_override = True
-
-                url = URL_HEAD + sport_path + "/" + league_path + URL_TAIL + url_parms
-
-                async with aiohttp.ClientSession() as session:
-                    try:
-                        async with session.get(url, headers=headers) as r:
-                            _LOGGER.debug(
-                                "%s: Calling API without language for '%s' from %s",
-                                sensor_name,
-                                team_id,
-                                url,
-                            )
-                            if r.status == 200:
-                                data = await r.json()
-                    except:
-                        data = None
-        self.api_url = url
-        
-        return data, file_override
+        return event
 
     async def async_update_values(self, config, hass, data, lang) -> dict:
         """Return values based on the data passed into method"""
 
         values = {}
         sensor_name = self.name
-
-        league_id = self.league_id.upper()
         sport_path = self.sport_path
-
-        team_id = self.team_id.upper()
+        team_name = self.team_id
 
         values = await async_clear_values()
         values["sport"] = sport_path
         values["sport_path"] = self.sport_path
-        values["league"] = league_id
-        values["league_path"] = self.league_path
+        values["league"] = ""
+        values["league_path"] = ""
         values["league_logo"] = DEFAULT_LOGO
-        values["team_abbr"] = team_id
+        values["team_abbr"] = team_name[:3].upper() if len(team_name) >= 3 else team_name.upper()
         values["state"] = "NOT_FOUND"
         values["last_update"] = arrow.now().format(arrow.FORMAT_W3C)
         values["private_fast_refresh"] = False
         values["api_url"] = self.api_url
 
         if data is None:
-            values["api_message"] = "API error, no data returned"
-            _LOGGER.warning(
-                "%s: API did not return any data for team '%s'", sensor_name, team_id
+            values["api_message"] = "No upcoming event found for this team"
+            _LOGGER.debug(
+                "%s: No event data returned for team '%s'", sensor_name, team_name
             )
             return values
 
-        values = await async_process_event(
+        # Process SofaScore event
+        values = await async_process_sofascore_event(
             values,
             sensor_name,
             data,
-            sport_path,
-            league_id,
-            DEFAULT_LOGO,
-            team_id,
-            lang,
+            self.sofascore_team_id,
+            self.sofascore_api,
         )
+
+        # If event is IN or coming soon, fetch additional statistics
+        if values.get("state") == "IN" and data:
+            event_id = data.get("id")
+            if event_id:
+                values = await async_get_sofascore_statistics(
+                    values,
+                    event_id,
+                    self.sofascore_team_id,
+                    self.sofascore_api,
+                    sensor_name,
+                )
 
         return values

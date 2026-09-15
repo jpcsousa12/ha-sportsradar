@@ -22,8 +22,10 @@ from .const import (
     DEFAULT_CONFERENCE_ID,
     DEFAULT_LEAGUE,
     DEFAULT_NAME,
+    DEFAULT_SPORT_PATH,
     DOMAIN,
     LEAGUE_MAP,
+    SPORT_OPTIONS,
 )
 
 JSON_FEATURES = "features"
@@ -50,19 +52,14 @@ def _get_schema(
         """Gets default value for key."""
         return user_input.get(key, default_dict.get(key, fallback_default))
 
+    # Create sport selector dictionary
+    sport_dict = {sport_id: sport_name for sport_id, sport_name in SPORT_OPTIONS}
+
     return vol.Schema(
         {
-            vol.Required(CONF_LEAGUE_ID, default=_get_default(CONF_LEAGUE_ID)): vol.In(
-                {
-                    **{k: k for k in sorted(LEAGUE_MAP)},
-                    "XXX": "Custom: Specify sport and league path",
-                }
-            ),
             vol.Required(CONF_TEAM_ID, default=_get_default(CONF_TEAM_ID)): cv.string,
+            vol.Required(CONF_SPORT_PATH, default=_get_default(CONF_SPORT_PATH)): vol.In(sport_dict),
             vol.Optional(CONF_NAME, default=_get_default(CONF_NAME)): cv.string,
-            vol.Optional(
-                CONF_CONFERENCE_ID, default=_get_default(CONF_CONFERENCE_ID)
-            ): cv.string,
         }
     )
 
@@ -101,17 +98,16 @@ class TeamTrackerScoresFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._errors = {}
 
         if user_input is not None:
-            league_id = user_input[CONF_LEAGUE_ID].upper()
-            if league_id == "XXX":
-                self._data.update(user_input)
-                return await self.async_step_path()
-            if paths := LEAGUE_MAP.get(league_id):
-                user_input.update(paths)
-                self._data.update(user_input)
-                return self.async_create_entry(
-                    title=self._data[CONF_NAME], data=self._data
-                )
-            self._errors["base"] = "league"
+            # Set empty league values for SofaScore mode
+            user_input[CONF_LEAGUE_ID] = ""
+            user_input[CONF_LEAGUE_PATH] = ""
+            user_input[CONF_CONFERENCE_ID] = ""
+
+            self._data.update(user_input)
+            return self.async_create_entry(
+                title=self._data[CONF_NAME], data=self._data
+            )
+
         return await self._show_config_form(user_input)
 
     async def async_step_path(self, user_input: Optional[Dict[str, Any]] = None):
@@ -131,15 +127,17 @@ class TeamTrackerScoresFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Defaults
         defaults = {
-            CONF_LEAGUE_ID: DEFAULT_LEAGUE,
+            CONF_SPORT_PATH: DEFAULT_SPORT_PATH,
             CONF_NAME: DEFAULT_NAME,
             CONF_TEAM_ID: "",
-            CONF_CONFERENCE_ID: DEFAULT_CONFERENCE_ID,
         }
         return self.async_show_form(
             step_id="user",
             data_schema=_get_schema(self.hass, user_input, defaults),
             errors=self._errors,
+            description_placeholders={
+                "team_example": "e.g., 'Manchester United', 'Barcelona', 'Real Madrid'",
+            },
         )
 
     async def _show_path_form(self, user_input):

@@ -1,10 +1,13 @@
-async-timeout
-black
-isort
+# Test dependencies.
+#
+# The standalone SofaScore checks (tests/sofascore/test_logic.py) need only
+# aiohttp + arrow. The Home Assistant test suite needs the rest.
+
+aiohttp>=3.8.0
+arrow>=1.2.0
+
 pytest>=8.0.2
 pytest-asyncio>=0.23.5
 pytest-cov>=4.1.0
 pytest-mock>=3.14.0
 pytest-homeassistant-custom-component>=0.13.109
-arrow
-aiofiles

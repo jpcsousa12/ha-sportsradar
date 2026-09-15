@@ -1,0 +1,331 @@
+{
+  "live_event": {
+    "id": 17102712,
+    "slug": "iran-u17-kyrgyzstan-u17",
+    "customId": "eIGisKNGi",
+    "startTimestamp": 1789470000,
+    "status": {
+      "code": 31,
+      "description": "Halftime",
+      "type": "inprogress"
+    },
+    "tournament": {
+      "name": "U17 Friendly Games, Women",
+      "slug": "u17-friendly-games-women"
+    },
+    "homeTeam": {
+      "id": 1079435,
+      "name": "Iran U17",
+      "slug": "iran-u17-f",
+      "shortName": "Iran U17",
+      "nameCode": "IUF"
+    },
+    "awayTeam": {
+      "id": 1079154,
+      "name": "Kyrgyzstan U17",
+      "slug": "kyrgyzstan-u17",
+      "shortName": "Kyrgyzstan U17",
+      "nameCode": "KU1"
+    },
+    "homeScore": {
+      "current": 1,
+      "display": 1,
+      "period1": 1,
+      "normaltime": 1
+    },
+    "awayScore": {
+      "current": 1,
+      "display": 1,
+      "period1": 1,
+      "normaltime": 1
+    }
+  },
+  "pre_event": {
+    "id": 16432059,
+    "slug": "benfica-fc-porto",
+    "customId": "ckbsgkb",
+    "startTimestamp": 1789932600,
+    "status": {
+      "code": 0,
+      "description": "Not started",
+      "type": "notstarted"
+    },
+    "roundInfo": {
+      "round": 7
+    },
+    "tournament": {
+      "name": "Liga Portugal Betclic",
+      "slug": "liga-portugal-betclic"
+    },
+    "homeTeam": {
+      "id": 3002,
+      "name": "FC Porto",
+      "slug": "fc-porto",
+      "shortName": "Porto",
+      "nameCode": "FCP"
+    },
+    "awayTeam": {
+      "id": 3006,
+      "name": "Benfica",
+      "slug": "benfica",
+      "shortName": "Benfica",
+      "nameCode": "SLB"
+    },
+    "homeScore": {},
+    "awayScore": {}
+  },
+  "finished_event": {
+    "id": 16432053,
+    "slug": "casa-pia-fc-porto",
+    "customId": "ckbspCo",
+    "startTimestamp": 1789232400,
+    "status": {
+      "code": 100,
+      "description": "Ended",
+      "type": "finished"
+    },
+    "winnerCode": 2,
+    "roundInfo": {
+      "round": 6
+    },
+    "tournament": {
+      "name": "Liga Portugal Betclic",
+      "slug": "liga-portugal-betclic"
+    },
+    "homeTeam": {
+      "id": 36365,
+      "name": "Casa Pia",
+      "slug": "casa-pia",
+      "shortName": "Casa Pia",
+      "nameCode": "CAS"
+    },
+    "awayTeam": {
+      "id": 3002,
+      "name": "FC Porto",
+      "slug": "fc-porto",
+      "shortName": "Porto",
+      "nameCode": "FCP"
+    },
+    "homeScore": {
+      "current": 1,
+      "display": 1,
+      "period1": 1,
+      "period2": 0,
+      "normaltime": 1
+    },
+    "awayScore": {
+      "current": 4,
+      "display": 4,
+      "period1": 1,
+      "period2": 3,
+      "normaltime": 4
+    }
+  },
+  "live_feed": {
+    "events": [
+      {
+        "id": 17102712,
+        "status": {
+          "code": 31,
+          "description": "Halftime",
+          "type": "inprogress"
+        },
+        "homeTeam": {
+          "id": 1079435,
+          "name": "Iran U17"
+        },
+        "awayTeam": {
+          "id": 1079154,
+          "name": "Kyrgyzstan U17"
+        }
+      },
+      {
+        "id": 16875507,
+        "status": {
+          "code": 7,
+          "description": "2nd half",
+          "type": "inprogress"
+        },
+        "homeTeam": {
+          "id": 49091,
+          "name": "Qatar U23"
+        },
+        "awayTeam": {
+          "id": 24259,
+          "name": "South Korea U23"
+        }
+      },
+      {
+        "id": 17100098,
+        "status": {
+          "code": 31,
+          "description": "Halftime",
+          "type": "inprogress"
+        },
+        "homeTeam": {
+          "id": 286263,
+          "name": "Uganda U20"
+        },
+        "awayTeam": {
+          "id": 385245,
+          "name": "Djibouti U20"
+        }
+      }
+    ]
+  },
+  "porto_next": {
+    "events": [
+      {
+        "id": 16432059,
+        "startTimestamp": 1789932600,
+        "status": {
+          "code": 0,
+          "description": "Not started",
+          "type": "notstarted"
+        },
+        "homeTeam": {
+          "id": 3002,
+          "name": "FC Porto"
+        },
+        "awayTeam": {
+          "id": 3006,
+          "name": "Benfica"
+        }
+      },
+      {
+        "id": 16450895,
+        "startTimestamp": 1791651600,
+        "status": {
+          "code": 0,
+          "description": "Not started",
+          "type": "notstarted"
+        },
+        "homeTeam": {
+          "id": 3007,
+          "name": "CS Marítimo"
+        },
+        "awayTeam": {
+          "id": 3002,
+          "name": "FC Porto"
+        }
+      }
+    ]
+  },
+  "porto_last": {
+    "events": [
+      {
+        "id": 16938854,
+        "startTimestamp": 1788894000,
+        "status": {
+          "code": 100,
+          "description": "Ended",
+          "type": "finished"
+        },
+        "homeTeam": {
+          "id": 3002,
+          "name": "FC Porto"
+        },
+        "awayTeam": {
+          "id": 17,
+          "name": "Manchester City"
+        }
+      },
+      {
+        "id": 16432053,
+        "startTimestamp": 1789232400,
+        "status": {
+          "code": 100,
+          "description": "Ended",
+          "type": "finished"
+        },
+        "homeTeam": {
+          "id": 36365,
+          "name": "Casa Pia"
+        },
+        "awayTeam": {
+          "id": 3002,
+          "name": "FC Porto"
+        }
+      }
+    ]
+  },
+  "statistics_multi_period": {
+    "statistics": [
+      {
+        "period": "ALL",
+        "groups": [
+          {
+            "groupName": "Match overview",
+            "statisticsItems": [
+              {
+                "name": "Ball possession",
+                "home": "36%",
+                "away": "64%"
+              },
+              {
+                "name": "Total shots",
+                "home": "15",
+                "away": "17"
+              },
+              {
+                "name": "Shots on target",
+                "home": "4",
+                "away": "8"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "period": "1ST",
+        "groups": [
+          {
+            "groupName": "Match overview",
+            "statisticsItems": [
+              {
+                "name": "Ball possession",
+                "home": "31%",
+                "away": "69%"
+              },
+              {
+                "name": "Total shots",
+                "home": "6",
+                "away": "8"
+              },
+              {
+                "name": "Shots on target",
+                "home": "2",
+                "away": "3"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "period": "2ND",
+        "groups": [
+          {
+            "groupName": "Match overview",
+            "statisticsItems": [
+              {
+                "name": "Ball possession",
+                "home": "41%",
+                "away": "59%"
+              },
+              {
+                "name": "Total shots",
+                "home": "9",
+                "away": "9"
+              },
+              {
+                "name": "Shots on target",
+                "home": "2",
+                "away": "5"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
