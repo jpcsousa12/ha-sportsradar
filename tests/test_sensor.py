@@ -5,7 +5,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from typing import Any
 from custom_components.sportsradar.const import DOMAIN
 from custom_components.sportsradar.sensor import async_setup_platform
-from tests.const import CONFIG_DATA, PLATFORM_TEST_DATA
+from tests.const import CONFIG_DATA_SOFASCORE, PLATFORM_TEST_DATA, patch_sofascore
 
 
 @pytest.fixture(autouse=False)
@@ -22,17 +22,22 @@ def expected_lingering_timers() -> bool:
 async def test_sensor(hass, mocker):
     """ test sensor """
 
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title="NFL",
-        data=CONFIG_DATA,
-    )
+    patchers = patch_sofascore()
+    try:
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="FC Porto",
+            data=CONFIG_DATA_SOFASCORE,
+        )
 
-    mocker.patch("locale.getlocale", return_value=("en", 0))
+        mocker.patch("locale.getlocale", return_value=("en", 0))
 
-    entry.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
+        entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    finally:
+        for patcher in patchers:
+            patcher.stop()
 
     assert "sportsradar" in hass.config.components
 

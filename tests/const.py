@@ -361,3 +361,29 @@ CONFIG_DATA_SOFASCORE = {
     "conference_id": "",
     "timeout": 120,
 }
+
+
+def patch_sofascore(team=None, live=None, next_event=None, event=None, stats=None):
+    """Patch the SofaScore client so a test makes no network call.
+
+    Returns started patchers; stop them in a finally block. Without this a test
+    that merely sets up a config entry will really call the API, which is slow,
+    flaky, and leaves lingering tasks that fail HA's teardown checks.
+    """
+    from unittest.mock import patch
+
+    targets = {
+        "find_team_by_name": team,
+        "get_team_live_event": live,
+        "get_team_next_event": next_event,
+        "get_team_last_event": None,
+        "get_event": event,
+        "get_event_statistics": stats,
+    }
+    patchers = [
+        patch("custom_components.sportsradar.SofaScoreAPI.%s" % name, return_value=value)
+        for name, value in targets.items()
+    ]
+    for patcher in patchers:
+        patcher.start()
+    return patchers

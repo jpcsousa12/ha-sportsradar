@@ -7,7 +7,7 @@ import pytest
 from custom_components.sportsradar.const import DOMAIN, CONF_API_LANGUAGE
 from homeassistant import setup
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
-from tests.const import CONFIG_DATA
+from tests.const import CONFIG_DATA_SOFASCORE, patch_sofascore
 
 
 @pytest.mark.parametrize(
@@ -86,15 +86,20 @@ async def test_options_flow_init(
 ):
     """ Test config flow options """
 
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title="sports_radar",
-        data=CONFIG_DATA,
-    )
+    patchers = patch_sofascore()
+    try:
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="sports_radar",
+            data=CONFIG_DATA_SOFASCORE,
+        )
 
-    entry.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
+        entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    finally:
+        for patcher in patchers:
+            patcher.stop()
 
     assert len(hass.states.async_entity_ids(SENSOR_DOMAIN)) == 1
     entries = hass.config_entries.async_entries(DOMAIN)
