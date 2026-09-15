@@ -82,8 +82,9 @@ class FlakySession:
         self.attempts = 0
         self.closed = False
 
-    def get(self, url, params=None, headers=None, timeout=None):
+    def get(self, url, params=None, headers=None, timeout=None, ssl=None):
         self.attempts += 1
+        self.last_ssl = ssl
         return FlakyResponse(self.statuses.pop(0))
 
 
@@ -311,6 +312,38 @@ async def test_statistics_periods():
     )
 
 
+async def test_requests_use_the_browser_cipher_order():
+    print("")
+    print("TLS: browser cipher order is applied to requests")
+
+    context = await sofascore_api.async_get_ssl_context()
+    check(
+        "an SSL context is built",
+        context is not None,
+        "(got %s)" % context,
+    )
+    if context is not None:
+        names = {c["name"] for c in context.get_ciphers()}
+        check(
+            "context carries the browser cipher list",
+            "ECDHE-RSA-AES128-GCM-SHA256" in names,
+            "(got %d ciphers)" % len(names),
+        )
+
+    # The context must reach the request, or SofaScore refuses some hosts.
+    api = SofaScoreAPI()
+    session = FlakySession([200])
+    api.session = session
+    api._get_session = lambda: asyncio.sleep(0, result=session)
+    await api._make_request("/probe")
+
+    check(
+        "the request is given the SSL context",
+        getattr(session, "last_ssl", None) is not None,
+        "(got %s)" % getattr(session, "last_ssl", None),
+    )
+
+
 async def main():
     tests = (
         test_status_mapping,
@@ -321,6 +354,7 @@ async def main():
         test_retry_and_backoff,
         test_processing_end_to_end,
         test_statistics_periods,
+        test_requests_use_the_browser_cipher_order,
     )
     for test in tests:
         try:
@@ -339,3 +373,4 @@ async def main():
 
 if __name__ == "__main__":
     sys.exit(asyncio.run(main()))
+
