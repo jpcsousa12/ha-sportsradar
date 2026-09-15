@@ -1,10 +1,10 @@
-""" Test TeamTracker Sensor """
+""" Test SportsRadar Sensor """
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from typing import Any
-from custom_components.teamtracker.const import DOMAIN
-from custom_components.teamtracker.sensor import async_setup_platform
+from custom_components.sportsradar.const import DOMAIN
+from custom_components.sportsradar.sensor import async_setup_platform
 from tests.const import CONFIG_DATA, PLATFORM_TEST_DATA
 
 
@@ -34,7 +34,7 @@ async def test_sensor(hass, mocker):
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert "teamtracker" in hass.config.components
+    assert "sportsradar" in hass.config.components
 
 #    assert await entry.async_unload(hass)
 #    await hass.async_block_till_done()

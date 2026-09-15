@@ -1,4 +1,4 @@
-# Final Status - TeamTracker SofaScore Edition
+# Final Status - SportsRadar SofaScore Edition
 
 ## Update - 2026-09-15: API repairs
 
@@ -35,8 +35,8 @@ issue tracker.
 
 ### Files Organized
 ```
-ha-teamtracker/
-├── custom_components/teamtracker/    ← HOME ASSISTANT INTEGRATION
+ha-sportsradar/
+├── custom_components/sportsradar/    ← HOME ASSISTANT INTEGRATION
 │   ├── __init__.py                   (SofaScore coordinator)
 │   ├── sensor.py                     (Sensor entity)
 │   ├── config_flow.py                (Team-based config UI)
@@ -78,7 +78,7 @@ ha-teamtracker/
 ### ✅ READY FOR DEPLOYMENT
 
 #### Structure ✅
-- [x] Proper domain: `teamtracker`
+- [x] Proper domain: `sportsradar`
 - [x] manifest.json with correct version (0.15.0)
 - [x] config_flow.py for UI configuration
 - [x] All required files present

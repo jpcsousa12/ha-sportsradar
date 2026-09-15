@@ -1,0 +1,16 @@
+{
+  "domain": "sportsradar",
+  "name": "Sports Radar",
+  "codeowners": [
+    "@jpcsousa12"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/jpcsousa12/ha-sportsradar",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/jpcsousa12/ha-sportsradar/issues",
+  "requirements": [
+    "arrow"
+  ],
+  "version": "0.15.0"
+}

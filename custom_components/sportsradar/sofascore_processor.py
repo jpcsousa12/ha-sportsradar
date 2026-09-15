@@ -1,4 +1,4 @@
-"""Process SofaScore event data into TeamTracker format"""
+"""Process SofaScore event data into SportsRadar format"""
 import logging
 from datetime import datetime, timezone
 from typing import Dict, Optional, Any

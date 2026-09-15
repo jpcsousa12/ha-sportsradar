@@ -3,13 +3,13 @@ import json
 import logging
 import aiofiles
 
-from custom_components.teamtracker.clear_values import async_clear_values
-from custom_components.teamtracker.const import (
+from custom_components.sportsradar.clear_values import async_clear_values
+from custom_components.sportsradar.const import (
     DEFAULT_KICKOFF_IN,
     DEFAULT_LAST_UPDATE,
     DEFAULT_LOGO,
 )
-from custom_components.teamtracker.event import async_process_event
+from custom_components.sportsradar.event import async_process_event
 from tests.const import TEST_DATA
 
 _LOGGER = logging.getLogger(__name__)

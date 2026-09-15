@@ -1,4 +1,4 @@
-# TeamTracker - SofaScore Edition
+# SportsRadar - SofaScore Edition
 
 > **Fork notice.** This project is derived from
 > [vasqued2/ha-teamtracker](https://github.com/vasqued2/ha-teamtracker) and is
@@ -11,7 +11,7 @@
 
 ## 🔄 Major Update: ESPN → SofaScore Migration
 
-This is a modified version of ha-teamtracker that uses **SofaScore** instead of ESPN as the data source.
+This is a modified version of ha-sportsradar that uses **SofaScore** instead of ESPN as the data source.
 
 ### Why SofaScore?
 
@@ -36,10 +36,10 @@ This is a modified version of ha-teamtracker that uses **SofaScore** instead of 
 
 ### Installation
 
-1. Copy the `custom_components/teamtracker` folder to your Home Assistant `custom_components` directory
+1. Copy the `custom_components/sportsradar` folder to your Home Assistant `custom_components` directory
 2. Restart Home Assistant
 3. Go to **Configuration** → **Integrations** → **Add Integration**
-4. Search for "TeamTracker"
+4. Search for "SportsRadar"
 
 ### Configuration
 
@@ -55,7 +55,7 @@ That's it! No need to specify leagues, conferences, or team IDs.
 
 ### Team Search
 
-When you configure a sensor, TeamTracker will:
+When you configure a sensor, SportsRadar will:
 1. Search SofaScore for your team name in the selected sport
 2. Cache the team ID for faster subsequent updates
 3. Automatically fetch the next upcoming game for that team
@@ -111,17 +111,17 @@ The sensor provides extensive data for each game:
 
 ## 🔧 Advanced Usage
 
-### Service: teamtracker.call_api
+### Service: sportsradar.call_api
 
 Dynamically change what team/sport a sensor is tracking:
 
 ```yaml
-service: teamtracker.call_api
+service: sportsradar.call_api
 data:
   sport_path: "football"
   league_path: ""  # Not used in SofaScore mode
   team_id: "Real Madrid"
-  entity_id: sensor.team_tracker
+  entity_id: sensor.sports_radar
 ```
 
 ### Automation Example
@@ -162,10 +162,10 @@ automation:
 
 ## 🎨 Display Card
 
-This integration works great with the **ha-teamtracker-card** for visual display:
+This integration works great with the **ha-sportsradar-card** for visual display:
 
 ```yaml
-type: custom:teamtracker-card
+type: custom:sportsradar-card
 entity: sensor.my_team
 ```
 
@@ -217,11 +217,11 @@ Found a bug or want to add a feature?
 
 ## 📜 License
 
-This project maintains the same license as the original ha-teamtracker.
+This project maintains the same license as the original ha-sportsradar.
 
 ## 🙏 Credits
 
-- Original **ha-teamtracker** by @vasqued2
+- Original **ha-sportsradar** by @vasqued2
 - Original **ha-nfl** by @zacs
 - SofaScore for providing comprehensive sports data
 - Home Assistant community

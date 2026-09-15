@@ -1,4 +1,4 @@
-""" Constants for teamtracker sensor"""
+""" Constants for sportsradar sensor"""
 from homeassistant.const import Platform
 from datetime import timedelta
 
@@ -184,7 +184,7 @@ DEFAULT_LEAGUE = ""  # No default league in SofaScore mode
 DEFAULT_LOGO = (
     "https://cdn0.iconfinder.com/data/icons/shift-interfaces/32/Error-512.png"
 )
-DEFAULT_NAME = "team_tracker"
+DEFAULT_NAME = "sports_radar"
 DEFAULT_PROB = 0.0
 DEFAULT_SPORT_PATH = "football"  # Default to football/soccer
 DEFAULT_TIMEOUT = 120
@@ -204,8 +204,8 @@ SERVICE_NAME_CALL_API = "call_api"
 # Misc
 TEAM_ID = ""
 VERSION = "v0.15.0-sofascore"
-ISSUE_URL = "https://github.com/vasqued2/ha-teamtracker"
-DOMAIN = "teamtracker"
+ISSUE_URL = "https://github.com/jpcsousa12/ha-sportsradar"
+DOMAIN = "sportsradar"
 ATTRIBUTION = "Data provided by SofaScore"
 COORDINATOR = "coordinator"
 PLATFORMS = [Platform.SENSOR]

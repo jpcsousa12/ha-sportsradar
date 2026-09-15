@@ -1,4 +1,4 @@
-"""SofaScore API Client for TeamTracker"""
+"""SofaScore API Client for SportsRadar"""
 import logging
 from typing import Optional, Dict, List, Any
 import aiohttp

@@ -1,4 +1,4 @@
-"""Adds config flow for TeamTracker."""
+"""Adds config flow for SportsRadar."""
 
 from __future__ import annotations
 
@@ -82,8 +82,8 @@ def _get_path_schema(hass: Any, user_input: list, default_dict: list) -> Any:
 
 
 @config_entries.HANDLERS.register(DOMAIN)
-class TeamTrackerScoresFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
-    """Config flow for TeamTracker."""
+class SportsRadarScoresFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+    """Config flow for SportsRadar."""
 
     VERSION = 3
 #    CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
@@ -158,10 +158,10 @@ class TeamTrackerScoresFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        return TeamTrackerScoresOptionsFlow(config_entry)
+        return SportsRadarScoresOptionsFlow(config_entry)
 
-class TeamTrackerScoresOptionsFlow(config_entries.OptionsFlow):
-    """Options flow for TeamTracker."""
+class SportsRadarScoresOptionsFlow(config_entries.OptionsFlow):
+    """Options flow for SportsRadar."""
 
     def __init__(self, config_entry):
         """Initialize."""

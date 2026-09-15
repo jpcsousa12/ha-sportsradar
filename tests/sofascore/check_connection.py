@@ -18,7 +18,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 COMPONENT = os.path.normpath(
-    os.path.join(HERE, "..", "..", "custom_components", "teamtracker")
+    os.path.join(HERE, "..", "..", "custom_components", "sportsradar")
 )
 sys.path.insert(0, COMPONENT)
 

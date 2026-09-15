@@ -1,10 +1,14 @@
 name: HACS Action
 
+# HACS validation checks a repository against the requirements for being
+# published in HACS. It reads the repo through the GitHub API as an app, which
+# cannot see a private repository - so on this fork it fails with
+# "integration_manifest: expected a dictionary. Got None" no matter what the
+# manifest contains. This fork is not published to HACS, so the workflow runs
+# only when asked for. Restore the push/schedule triggers if the repo is ever
+# made public and submitted to HACS.
 on:
-  push:
-  pull_request:
-  schedule:
-    - cron: "0 0 * * *"
+  workflow_dispatch:
 
 jobs:
   hacs:

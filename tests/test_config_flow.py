@@ -4,7 +4,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 import pytest
 
-from custom_components.teamtracker.const import DOMAIN, CONF_API_LANGUAGE
+from custom_components.sportsradar.const import DOMAIN, CONF_API_LANGUAGE
 from homeassistant import setup
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from tests.const import CONFIG_DATA
@@ -13,23 +13,25 @@ from tests.const import CONFIG_DATA
 @pytest.mark.parametrize(
     "input,step_id,title,description,data",
     [
+        # SofaScore mode: the user supplies a team NAME and a sport. The
+        # league fields are kept in the entry for backwards compatibility but
+        # are blanked out by the flow, since SofaScore needs no league.
         (
             {
-                "league_id": "NFL",
-                "team_id": "SEA",
-                "name": "team_tracker",
-                "conference_id": "9999",
+                "team_id": "FC Porto",
+                "sport_path": "football",
+                "name": "sports_radar",
             },
             "user",
-            "team_tracker",
+            "sports_radar",
             "description",
             {
-                "league_id": "NFL",
-                "team_id": "SEA",
-                "name": "team_tracker",
-                "conference_id": "9999",
-                "league_path": "nfl",
+                "team_id": "FC Porto",
                 "sport_path": "football",
+                "name": "sports_radar",
+                "league_id": "",
+                "league_path": "",
+                "conference_id": "",
             },
         ),
     ],
@@ -51,7 +53,7 @@ async def test_user_form(
     assert result["errors"] == {}
 
     with patch(
-        "custom_components.teamtracker.async_setup_entry",
+        "custom_components.sportsradar.async_setup_entry",
         return_value=True,
     ) as mock_setup_entry:
 
@@ -78,7 +80,7 @@ async def test_path_form(
     assert result["type"] == "form"
     assert result["errors"] == {}
 
-#@patch("custom_components.teamtracker.sensor.async_add_entities")
+#@patch("custom_components.sportsradar.sensor.async_add_entities")
 async def test_options_flow_init(
     hass,
 ):
@@ -86,7 +88,7 @@ async def test_options_flow_init(
 
     entry = MockConfigEntry(
         domain=DOMAIN,
-        title="team_tracker",
+        title="sports_radar",
         data=CONFIG_DATA,
     )
 

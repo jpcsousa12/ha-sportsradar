@@ -1,11 +1,11 @@
-alias: XXX - TeamTracker Test
+alias: XXX - SportsRadar Test
 description: ""
 trigger:
   - platform: time
     at: "17:00:00"
 condition: []
 action:
-  - service: notify.filenotify_teamtracker
+  - service: notify.filenotify_sportsradar
     data:
       message: >-
         {% for tt_sensor in states | selectattr('state', 'in', ['PRE', 'IN',

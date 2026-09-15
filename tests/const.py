@@ -11,7 +11,7 @@ class PlatformConfigType(dict):
 # Create the mock object
 PLATFORM_TEST_DATA = [
     [PlatformConfigType(
-        platform='teamtracker',
+        platform='sportsradar',
         league_id="BAD",
         team_id="MIA",
         name="test_tt_all_test03",
@@ -21,7 +21,7 @@ PLATFORM_TEST_DATA = [
         data={}
     ), False],
     [PlatformConfigType(
-        platform='teamtracker',
+        platform='sportsradar',
         league_id="XXX",
         team_id="MIA",
         name="test_tt_all_test04",
@@ -31,7 +31,7 @@ PLATFORM_TEST_DATA = [
         data={}
     ), False],
     [PlatformConfigType(
-        platform='teamtracker',
+        platform='sportsradar',
         league_id="MLB",
         team_id="MIA",
         name="test_tt_all_test02",
@@ -41,7 +41,7 @@ PLATFORM_TEST_DATA = [
         data={}
     ), True],
     [PlatformConfigType(
-        platform='teamtracker',
+        platform='sportsradar',
         league_id="MLB",
         team_id="MIA",
         name="test_tt_all_test01",
@@ -349,3 +349,15 @@ MULTIGAME_DATA = [
         "expected_event_name": None
     },
 ]
+
+# SofaScore-shaped config entry. CONF_TEAM_ID holds a team NAME here, and the
+# league fields are blanked because SofaScore resolves competitions itself.
+CONFIG_DATA_SOFASCORE = {
+    "team_id": "FC Porto",
+    "sport_path": "football",
+    "name": "test_tt_sofascore",
+    "league_id": "",
+    "league_path": "",
+    "conference_id": "",
+    "timeout": 120,
+}

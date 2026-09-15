@@ -1,4 +1,4 @@
-# Deployment Checklist - Team Tracker (SofaScore Edition)
+# Deployment Checklist - Sports Radar (SofaScore Edition)
 
 ## ✅ Pre-Deployment Verification
 
@@ -11,7 +11,7 @@
 
 ### Integration Structure
 ```
-custom_components/teamtracker/
+custom_components/sportsradar/
 ├── __init__.py                 ✅ SofaScore coordinator
 ├── sensor.py                   ✅ Sensor entity
 ├── config_flow.py              ✅ Team-based configuration
@@ -36,14 +36,14 @@ custom_components/teamtracker/
 
 ### 1. Backup Current Installation (if upgrading)
 ```bash
-# If you have existing TeamTracker installed
-cp -r /config/custom_components/teamtracker /config/custom_components/teamtracker.backup
+# If you have existing SportsRadar installed
+cp -r /config/custom_components/sportsradar /config/custom_components/sportsradar.backup
 ```
 
 ### 2. Install Integration
 ```bash
 # Copy integration folder to Home Assistant
-cp -r custom_components/teamtracker /config/custom_components/
+cp -r custom_components/sportsradar /config/custom_components/
 ```
 
 ### 3. Restart Home Assistant
@@ -53,7 +53,7 @@ cp -r custom_components/teamtracker /config/custom_components/
 ### 4. Add Integration
 - Settings → Devices & Services
 - Click "+ Add Integration"
-- Search: "Team Tracker"
+- Search: "Sports Radar"
 - Fill in:
   - **Team Name**: e.g., "FC Porto", "Benfica", "Manchester United"
   - **Sport**: Select from dropdown
@@ -79,9 +79,9 @@ cp -r custom_components/teamtracker /config/custom_components/
 ## 🔍 Troubleshooting
 
 ### Integration Not Showing Up
-**Problem**: TeamTracker not in integration list
+**Problem**: SportsRadar not in integration list
 **Solution**:
-1. Check files are in `/config/custom_components/teamtracker/`
+1. Check files are in `/config/custom_components/sportsradar/`
 2. Check `manifest.json` exists and is valid JSON
 3. Check Home Assistant logs for errors
 4. Restart Home Assistant again
@@ -190,7 +190,7 @@ Currently optimized for:
 1. **Check Logs**:
    ```
    Settings → System → Logs
-   Filter: "teamtracker"
+   Filter: "sportsradar"
    ```
 
 2. **Enable Debug Logging**:
@@ -198,12 +198,12 @@ Currently optimized for:
    logger:
      default: info
      logs:
-       custom_components.teamtracker: debug
+       custom_components.sportsradar: debug
    ```
 
 3. **Test Locally** (before deploying):
    ```bash
-   cd ha-teamtracker
+   cd ha-sportsradar
    python tests/sofascore/quick_test_simple.py
    python tests/sofascore/test_sofascore.py "Your Team"
    ```

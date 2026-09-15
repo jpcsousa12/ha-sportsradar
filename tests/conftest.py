@@ -24,3 +24,26 @@ if sys.platform == "win32":
 def auto_enable_custom_integrations(enable_custom_integrations):
     """ enable custom integrations """
     yield
+
+
+@pytest.fixture(autouse=True)
+def clear_coordinator_caches():
+    """Reset the coordinator's class-level caches between tests.
+
+    data_cache/last_update/team_cache are shared by every coordinator instance
+    and keyed on team+sport. That is deliberate at runtime - several sensors
+    tracking one team share a single fetch - but between tests it lets one
+    test's fixture data satisfy the next one's refresh.
+    """
+    from custom_components.sportsradar import SportsRadarDataUpdateCoordinator
+
+    caches = (
+        SportsRadarDataUpdateCoordinator.data_cache,
+        SportsRadarDataUpdateCoordinator.last_update,
+        SportsRadarDataUpdateCoordinator.team_cache,
+    )
+    for cache in caches:
+        cache.clear()
+    yield
+    for cache in caches:
+        cache.clear()

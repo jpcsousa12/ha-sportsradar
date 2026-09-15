@@ -27,7 +27,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Opciones de Team Tracker",
+        "title": "Opciones de Sports Radar",
         "description": "Ingrese el código de idioma de 2 caracteres que se usará para la llamada API.",
         "data": {
           "api_language": "Lenguaje API"

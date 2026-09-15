@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import slugify
 
-from . import TeamTrackerDataUpdateCoordinator
+from . import SportsRadarDataUpdateCoordinator
 from .const import (
     ATTRIBUTION,
     CONF_API_LANGUAGE,
@@ -64,7 +64,7 @@ async def async_setup_platform(
     sensor_name = config[CONF_NAME]
 
     _LOGGER.info(
-        "%s: Setting up sensor from YAML using TeamTracker %s, if you have any issues please report them here: %s",
+        "%s: Setting up sensor from YAML using SportsRadar %s, if you have any issues please report them here: %s",
         sensor_name, 
         VERSION,
         ISSUE_URL,
@@ -79,7 +79,7 @@ async def async_setup_platform(
         async_create(
             hass,
             f"{sensor_name} Error: `league_id` must be valid (one of {league_ids})",
-            "Team Tracker",
+            "Sports Radar",
             DOMAIN,
         )
         return
@@ -93,7 +93,7 @@ async def async_setup_platform(
             "Must specify sport and league path for custom league (league_id = XXX)"
         )
         _LOGGER.warning("%s: %s", sensor_name, error_msg)
-        async_create(hass, f"{sensor_name} Error: {error_msg}", "Team Tracker", DOMAIN)
+        async_create(hass, f"{sensor_name} Error: {error_msg}", "Sports Radar", DOMAIN)
         return
 
     league_id = config[CONF_LEAGUE_ID].upper()
@@ -114,7 +114,7 @@ async def async_setup_platform(
         hass.data.setdefault(DOMAIN, {})
 
     # Setup the data coordinator
-    coordinator = TeamTrackerDataUpdateCoordinator(
+    coordinator = SportsRadarDataUpdateCoordinator(
         hass,
         config,
     )
@@ -126,7 +126,7 @@ async def async_setup_platform(
     hass.data[DOMAIN][sensor_name] = {
         COORDINATOR: coordinator,
     }
-    async_add_entities([TeamTrackerScoresSensor(hass, None, config)], True)
+    async_add_entities([SportsRadarScoresSensor(hass, None, config)], True)
 
 
 async def async_setup_entry(
@@ -137,7 +137,7 @@ async def async_setup_entry(
     sensor_name = entry.data[CONF_NAME]
 
     _LOGGER.info(
-        "%s: Updating sensor from UI using TeamTracker %s, if you have any issues please report them here: %s",
+        "%s: Updating sensor from UI using SportsRadar %s, if you have any issues please report them here: %s",
         sensor_name, 
         VERSION,
         ISSUE_URL,
@@ -148,10 +148,10 @@ async def async_setup_entry(
     if entry.options:
         config.update(entry.options)
 
-    async_add_entities([TeamTrackerScoresSensor(hass, entry, None)], True)
+    async_add_entities([SportsRadarScoresSensor(hass, entry, None)], True)
 
 
-class TeamTrackerScoresSensor(CoordinatorEntity):
+class SportsRadarScoresSensor(CoordinatorEntity):
     """Representation of a Sensor."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, config: ConfigType) -> None:

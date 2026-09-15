@@ -22,8 +22,8 @@ if sys.platform == 'win32':
 # Add the custom_components directory to Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 repo_root = os.path.normpath(os.path.join(current_dir, '..', '..'))
-teamtracker_path = os.path.join(repo_root, 'custom_components', 'teamtracker')
-sys.path.insert(0, teamtracker_path)
+sportsradar_path = os.path.join(repo_root, 'custom_components', 'sportsradar')
+sys.path.insert(0, sportsradar_path)
 
 # Now import the modules (without relative imports since we're running standalone)
 import sofascore_api

@@ -1,4 +1,4 @@
-""" TeamTracker Team Status """
+""" SportsRadar Team Status """
 import asyncio
 from datetime import datetime, timezone
 import locale
@@ -98,7 +98,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     sensor_name = entry.data[CONF_NAME]
 
     _LOGGER.info(
-        "%s: Setting up sensor from UI configuration using TeamTracker %s, if you have any issues please report them here: %s",
+        "%s: Setting up sensor from UI configuration using SportsRadar %s, if you have any issues please report them here: %s",
         sensor_name, 
         VERSION,
         ISSUE_URL,
@@ -120,7 +120,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             ent_reg.async_update_entity(entity.entity_id, new_unique_id=entry.entry_id)
 
     # Setup the data coordinator
-    coordinator = TeamTrackerDataUpdateCoordinator(
+    coordinator = SportsRadarDataUpdateCoordinator(
         hass, entry.data, entry
     )
 
@@ -195,8 +195,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-class TeamTrackerDataUpdateCoordinator(DataUpdateCoordinator):
-    """Class to manage fetching TeamTracker data."""
+class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
+    """Class to manage fetching SportsRadar data."""
 
     data_cache = {}
     last_update = {}
@@ -265,20 +265,20 @@ class TeamTrackerDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Clear cache for this team
         key = f"{team_id}:{sport_path}"
-        if key in TeamTrackerDataUpdateCoordinator.data_cache:
-            del TeamTrackerDataUpdateCoordinator.data_cache[key]
+        if key in SportsRadarDataUpdateCoordinator.data_cache:
+            del SportsRadarDataUpdateCoordinator.data_cache[key]
 
         # Clear team ID cache to force re-search
         team_cache_key = f"{team_id}:{sport_path}"
-        if team_cache_key in TeamTrackerDataUpdateCoordinator.team_cache:
-            del TeamTrackerDataUpdateCoordinator.team_cache[team_cache_key]
+        if team_cache_key in SportsRadarDataUpdateCoordinator.team_cache:
+            del SportsRadarDataUpdateCoordinator.team_cache[team_cache_key]
 
         # Forget the fixture we were following so the new team resolves fresh
         self.sofascore_event_id = None
 
 
     #
-    #  Top-level method called from HA to update data for all teamtracker sensors
+    #  Top-level method called from HA to update data for all sportsradar sensors
     #
     async def _async_update_data(self):
         """Update data."""
@@ -362,8 +362,8 @@ class TeamTrackerDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             # Check if we have cached team ID
             cache_key = f"{team_name}:{sport}"
-            if cache_key in TeamTrackerDataUpdateCoordinator.team_cache:
-                self.sofascore_team_id = TeamTrackerDataUpdateCoordinator.team_cache[cache_key]
+            if cache_key in SportsRadarDataUpdateCoordinator.team_cache:
+                self.sofascore_team_id = SportsRadarDataUpdateCoordinator.team_cache[cache_key]
                 _LOGGER.debug(
                     "%s: Using cached team ID %s for '%s'",
                     sensor_name,
@@ -383,7 +383,7 @@ class TeamTrackerDataUpdateCoordinator(DataUpdateCoordinator):
 
                 if team_data:
                     self.sofascore_team_id = team_data.get("id")
-                    TeamTrackerDataUpdateCoordinator.team_cache[cache_key] = self.sofascore_team_id
+                    SportsRadarDataUpdateCoordinator.team_cache[cache_key] = self.sofascore_team_id
                     _LOGGER.info(
                         "%s: Found team '%s' with ID %s",
                         sensor_name,

@@ -1,15 +1,15 @@
 """Test NFL Sensor"""
 import logging
 
-from custom_components.teamtracker.set_cricket import async_set_cricket_values
-from custom_components.teamtracker.set_golf import async_set_golf_values
-from custom_components.teamtracker.set_hockey import async_set_hockey_values
-from custom_components.teamtracker.set_mma import async_set_mma_values
-from custom_components.teamtracker.set_racing import async_set_racing_values
-from custom_components.teamtracker.set_soccer import async_set_soccer_values
-from custom_components.teamtracker.set_tennis import async_set_tennis_values
-from custom_components.teamtracker.set_volleyball import async_set_volleyball_values
-from custom_components.teamtracker.set_values import async_set_values, async_set_universal_values, async_set_team_values, async_set_in_values
+from custom_components.sportsradar.set_cricket import async_set_cricket_values
+from custom_components.sportsradar.set_golf import async_set_golf_values
+from custom_components.sportsradar.set_hockey import async_set_hockey_values
+from custom_components.sportsradar.set_mma import async_set_mma_values
+from custom_components.sportsradar.set_racing import async_set_racing_values
+from custom_components.sportsradar.set_soccer import async_set_soccer_values
+from custom_components.sportsradar.set_tennis import async_set_tennis_values
+from custom_components.sportsradar.set_volleyball import async_set_volleyball_values
+from custom_components.sportsradar.set_values import async_set_values, async_set_universal_values, async_set_team_values, async_set_in_values
 
 _LOGGER = logging.getLogger(__name__)
 

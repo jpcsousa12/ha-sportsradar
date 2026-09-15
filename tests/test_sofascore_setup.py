@@ -17,33 +17,8 @@ from unittest.mock import patch
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.teamtracker import TeamTrackerDataUpdateCoordinator
-from custom_components.teamtracker.const import DOMAIN
+from custom_components.sportsradar.const import DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
-
-
-@pytest.fixture(autouse=True)
-def clear_coordinator_caches():
-    """Reset the coordinator's class-level caches between tests.
-
-    data_cache/last_update/team_cache are shared by every coordinator instance
-    and keyed on team+sport, which is deliberate at runtime (several sensors
-    tracking one team share a fetch) but would otherwise leak one test's
-    fixture into the next.
-    """
-    for cache in (
-        TeamTrackerDataUpdateCoordinator.data_cache,
-        TeamTrackerDataUpdateCoordinator.last_update,
-        TeamTrackerDataUpdateCoordinator.team_cache,
-    ):
-        cache.clear()
-    yield
-    for cache in (
-        TeamTrackerDataUpdateCoordinator.data_cache,
-        TeamTrackerDataUpdateCoordinator.last_update,
-        TeamTrackerDataUpdateCoordinator.team_cache,
-    ):
-        cache.clear()
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "sofascore", "fixtures.json")
 
@@ -77,27 +52,27 @@ def _patch_api(live=None, next_event=None, event=None, stats=None):
     """Patch the SofaScore client so the integration never hits the network."""
     return (
         patch(
-            "custom_components.teamtracker.SofaScoreAPI.find_team_by_name",
+            "custom_components.sportsradar.SofaScoreAPI.find_team_by_name",
             return_value=TEAM_RESULT,
         ),
         patch(
-            "custom_components.teamtracker.SofaScoreAPI.get_team_live_event",
+            "custom_components.sportsradar.SofaScoreAPI.get_team_live_event",
             return_value=live,
         ),
         patch(
-            "custom_components.teamtracker.SofaScoreAPI.get_team_next_event",
+            "custom_components.sportsradar.SofaScoreAPI.get_team_next_event",
             return_value=next_event,
         ),
         patch(
-            "custom_components.teamtracker.SofaScoreAPI.get_team_last_event",
+            "custom_components.sportsradar.SofaScoreAPI.get_team_last_event",
             return_value=None,
         ),
         patch(
-            "custom_components.teamtracker.SofaScoreAPI.get_event",
+            "custom_components.sportsradar.SofaScoreAPI.get_event",
             return_value=event,
         ),
         patch(
-            "custom_components.teamtracker.SofaScoreAPI.get_event_statistics",
+            "custom_components.sportsradar.SofaScoreAPI.get_event_statistics",
             return_value=stats,
         ),
     )
@@ -109,7 +84,7 @@ async def _setup(hass, **kwargs):
         p.start()
     try:
         entry = MockConfigEntry(
-            domain=DOMAIN, title="team_tracker", data=CONFIG_SOFASCORE
+            domain=DOMAIN, title="sports_radar", data=CONFIG_SOFASCORE
         )
         entry.add_to_hass(hass)
         assert await hass.config_entries.async_setup(entry.entry_id)
@@ -124,7 +99,7 @@ async def test_integration_loads_and_creates_sensor(hass, socket_enabled):
     """The integration sets up and produces exactly one sensor."""
     await _setup(hass, next_event=FIX["pre_event"], event=FIX["pre_event"])
 
-    assert "teamtracker" in hass.config.components
+    assert "sportsradar" in hass.config.components
     assert len(hass.states.async_entity_ids(SENSOR_DOMAIN)) == 1
 
 
@@ -152,14 +127,14 @@ async def test_live_match_reports_in(hass, socket_enabled):
 
 async def test_api_failure_does_not_report_a_phantom_game(hass, socket_enabled):
     """When SofaScore is unreachable the sensor must not claim 'no game'."""
-    from custom_components.teamtracker.sofascore_api import SofaScoreApiError
+    from custom_components.sportsradar.sofascore_api import SofaScoreApiError
 
     with patch(
-        "custom_components.teamtracker.SofaScoreAPI.find_team_by_name",
+        "custom_components.sportsradar.SofaScoreAPI.find_team_by_name",
         side_effect=SofaScoreApiError("403 Forbidden"),
     ):
         entry = MockConfigEntry(
-            domain=DOMAIN, title="team_tracker", data=CONFIG_SOFASCORE
+            domain=DOMAIN, title="sports_radar", data=CONFIG_SOFASCORE
         )
         entry.add_to_hass(hass)
         await hass.config_entries.async_setup(entry.entry_id)

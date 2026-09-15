@@ -8,7 +8,7 @@
 run_tests.bat
 
 # Or run from command line:
-cd C:\Users\joao.sousa\PycharmProjects\ha-teamtracker
+cd C:\Users\joao.sousa\PycharmProjects\ha-sportsradar
 run_tests.bat
 ```
 
@@ -66,9 +66,9 @@ If you see 403, the API headers need updating (let me know!)
 
 1. **Copy files to Home Assistant:**
    ```bash
-   # Copy the entire teamtracker folder to your HA config
-   Copy from: C:\Users\joao.sousa\PycharmProjects\ha-teamtracker\custom_components\teamtracker
-   Copy to: \\<your-ha-server>\config\custom_components\teamtracker
+   # Copy the entire sportsradar folder to your HA config
+   Copy from: C:\Users\joao.sousa\PycharmProjects\ha-sportsradar\custom_components\sportsradar
+   Copy to: \\<your-ha-server>\config\custom_components\sportsradar
    ```
 
 2. **Restart Home Assistant:**
@@ -77,7 +77,7 @@ If you see 403, the API headers need updating (let me know!)
 3. **Add Integration:**
    - Go to Settings → Devices & Services
    - Click "+ Add Integration"
-   - Search for "TeamTracker"
+   - Search for "SportsRadar"
    - Fill in:
      - **Team Name**: `Benfica` (or your team)
      - **Sport**: Select `Football (Soccer)` from dropdown
@@ -94,7 +94,7 @@ If you see 403, the API headers need updating (let me know!)
 
 1. Add custom repository:
    - HACS → Integrations → ⋮ → Custom repositories
-   - Add: `https://github.com/<your-fork>/ha-teamtracker`
+   - Add: `https://github.com/<your-fork>/ha-sportsradar`
    - Category: Integration
 
 2. Install and restart
@@ -157,7 +157,7 @@ SofaScore API returned 403 Forbidden
 - Check if SofaScore.com is accessible from your network
 
 ### Integration Not Showing Up
-- Make sure files are in correct location: `config/custom_components/teamtracker/`
+- Make sure files are in correct location: `config/custom_components/sportsradar/`
 - Check that `manifest.json` exists
 - Restart Home Assistant
 - Check logs for errors during startup
@@ -247,7 +247,7 @@ Your sensor will have these attributes:
 
 To update the integration:
 
-1. Replace the `custom_components/teamtracker` folder with new version
+1. Replace the `custom_components/sportsradar` folder with new version
 2. Restart Home Assistant
 3. Existing sensors will continue to work (no reconfiguration needed)
 
@@ -255,14 +255,14 @@ To update the integration:
 
 1. **Check logs first:**
    - Settings → System → Logs
-   - Filter by "teamtracker"
+   - Filter by "sportsradar"
 
 2. **Enable debug logging:**
    ```yaml
    logger:
      default: info
      logs:
-       custom_components.teamtracker: debug
+       custom_components.sportsradar: debug
    ```
 
 3. **Test locally:**
