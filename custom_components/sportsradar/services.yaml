@@ -34,3 +34,10 @@ call_api:
       example: '5'
       selector:
         text:
+diagnose:
+  name: Sports Radar Diagnose Connection
+  description: >-
+    Tries several client configurations against SofaScore from this Home
+    Assistant host and writes the results to the log. Use this when the sensor
+    is unavailable with a 403, to find out whether any configuration is
+    accepted from this network.

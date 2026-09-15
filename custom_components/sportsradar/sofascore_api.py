@@ -404,3 +404,73 @@ class SofaScoreAPI:
             return None
 
         return data.get("event")
+
+
+# Cipher order roughly matching a desktop browser. Some edge filters classify
+# on the TLS handshake, and the cipher list is the part reachable from Python.
+BROWSER_CIPHERS = (
+    "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:"
+    "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:"
+    "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:"
+    "ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:"
+    "AES256-GCM-SHA384:AES128-SHA:AES256-SHA"
+)
+
+ALTERNATE_HOSTS = ("api.sofascore.com", "api.sofascore.app")
+
+
+def _build_ssl_context(ciphers=None, max_version=None):
+    """An SSL context for one diagnostic attempt, or None on failure."""
+    import ssl
+
+    try:
+        context = ssl.create_default_context()
+        if ciphers:
+            context.set_ciphers(ciphers)
+        if max_version:
+            context.maximum_version = max_version
+        return context
+    except (ssl.SSLError, ValueError):
+        return None
+
+
+async def async_diagnose_403(probe_path: str = "/team/3002/events/last/0") -> list:
+    """Try several client configurations and report which SofaScore allows.
+
+    SofaScore refuses clients on the TLS handshake rather than purely on
+    address: on one machine curl is refused while aiohttp is allowed from the
+    same IP with the same headers. This runs inside Home Assistant, so it uses
+    the same Python, OpenSSL and network path the integration does.
+
+    Returns a list of (label, status_or_error) tuples.
+    """
+    import ssl
+
+    attempts = [
+        ("default TLS", None),
+        ("browser cipher order", _build_ssl_context(ciphers=BROWSER_CIPHERS)),
+        ("TLS 1.2 max", _build_ssl_context(max_version=ssl.TLSVersion.TLSv1_2)),
+    ]
+
+    results = []
+    for host in ALTERNATE_HOSTS:
+        url = f"https://{host}/api/v1{probe_path}"
+        for label, context in attempts:
+            full_label = f"{host} | {label}"
+            connector = aiohttp.TCPConnector(ssl=context) if context else None
+            try:
+                async with aiohttp.ClientSession(connector=connector) as session:
+                    async with session.get(
+                        url,
+                        headers=SOFASCORE_HEADERS,
+                        timeout=aiohttp.ClientTimeout(total=20),
+                    ) as response:
+                        await response.read()
+                        results.append((full_label, response.status))
+            except Exception as error:  # pylint: disable=broad-exception-caught
+                # Diagnostics: every failure mode is a result worth reporting.
+                results.append(
+                    (full_label, f"{type(error).__name__}: {error}")
+                )
+
+    return results

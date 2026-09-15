@@ -37,9 +37,10 @@ from .const import (
     POST_GAME_HOLD,
     RAPID_REFRESH_RATE,
     SERVICE_NAME_CALL_API,
+    SERVICE_NAME_DIAGNOSE,
     VERSION,
 )
-from .sofascore_api import SofaScoreAPI, SofaScoreApiError
+from .sofascore_api import SofaScoreAPI, SofaScoreApiError, async_diagnose_403
 from .sofascore_processor import async_process_sofascore_event, async_get_sofascore_statistics
 
 _LOGGER = logging.getLogger(__name__)
@@ -137,7 +138,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 #
 #  Register services for sensor
 #
+    async def async_diagnose_service(call):
+        """Report which client configurations SofaScore accepts from this host.
+
+        Runs in Home Assistant's own process, so the Python build, OpenSSL and
+        network path are exactly the ones the integration uses. Results go to
+        the log at error level so they are visible without enabling debug.
+        """
+        results = await async_diagnose_403()
+
+        _LOGGER.error("Sports Radar connectivity diagnosis:")
+        for label, outcome in results:
+            verdict = "ALLOWED" if outcome == 200 else "refused"
+            _LOGGER.error("  %-44s %s (%s)", label, verdict, outcome)
+
+        if any(outcome == 200 for _, outcome in results):
+            _LOGGER.error(
+                "  At least one configuration works from this host - report "
+                "which, and the integration can use it."
+            )
+        else:
+            _LOGGER.error(
+                "  Every configuration was refused. This host is blocked by "
+                "SofaScore; no change to the integration will fix that."
+            )
+
     hass.services.async_register(DOMAIN, SERVICE_NAME_CALL_API, async_call_api_service,)
+    hass.services.async_register(DOMAIN, SERVICE_NAME_DIAGNOSE, async_diagnose_service,)
 
     return True
 

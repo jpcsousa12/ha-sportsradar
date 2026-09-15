@@ -200,6 +200,7 @@ RAPID_REFRESH_RATE = timedelta(seconds=5)
 
 # Services
 SERVICE_NAME_CALL_API = "call_api"
+SERVICE_NAME_DIAGNOSE = "diagnose"
 
 # Misc
 TEAM_ID = ""
