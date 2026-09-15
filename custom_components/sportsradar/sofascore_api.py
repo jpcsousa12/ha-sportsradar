@@ -1,5 +1,6 @@
 """SofaScore API Client for SportsRadar"""
 import logging
+import ssl
 from typing import Any
 import aiohttp
 import asyncio
@@ -421,8 +422,6 @@ ALTERNATE_HOSTS = ("api.sofascore.com", "api.sofascore.app")
 
 def _build_ssl_context(ciphers=None, max_version=None):
     """An SSL context for one diagnostic attempt, or None on failure."""
-    import ssl
-
     try:
         context = ssl.create_default_context()
         if ciphers:
@@ -444,8 +443,6 @@ async def async_diagnose_403(probe_path: str = "/team/3002/events/last/0") -> li
 
     Returns a list of (label, status_or_error) tuples.
     """
-    import ssl
-
     attempts = [
         ("default TLS", None),
         ("browser cipher order", _build_ssl_context(ciphers=BROWSER_CIPHERS)),
