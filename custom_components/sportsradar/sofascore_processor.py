@@ -1,21 +1,20 @@
 """Process SofaScore event data into SportsRadar format"""
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Optional, Any
+from typing import Any
 import arrow
 
 # Handle imports for both standalone testing and Home Assistant
 try:
-    from .const import DEFAULT_LOGO, DEFAULT_PROB
+    from .const import DEFAULT_LOGO
     from .sofascore_api import SofaScoreAPI
 except ImportError:
     # Running standalone for testing - use test constants
     try:
-        from test_const import DEFAULT_LOGO, DEFAULT_PROB
+        from test_const import DEFAULT_LOGO
     except ImportError:
         # Fallback to hardcoded values
         DEFAULT_LOGO = "https://cdn0.iconfinder.com/data/icons/shift-interfaces/32/Error-512.png"
-        DEFAULT_PROB = 0.0
     import sofascore_api
     SofaScoreAPI = sofascore_api.SofaScoreAPI
 
@@ -89,12 +88,12 @@ def get_period_name(status_code: int, status_type: str) -> str:
 
 
 async def async_process_sofascore_event(
-    values: Dict[str, Any],
+    values: dict[str, Any],
     sensor_name: str,
-    event: Optional[Dict],
+    event: dict | None,
     team_id: int,
     api_client: SofaScoreAPI,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Process a SofaScore event and populate values dict
 
     Args:
@@ -125,7 +124,6 @@ async def async_process_sofascore_event(
 
         # Tournament/League info
         tournament = event.get("tournament", {})
-        category = tournament.get("category", {})
 
         values["league"] = tournament.get("name", "Unknown League")
         values["league_logo"] = f"https://api.sofascore.com/api/v1/unique-tournament/{tournament.get('uniqueTournament', {}).get('id')}/image" if tournament.get("uniqueTournament") else DEFAULT_LOGO
@@ -335,7 +333,9 @@ async def async_process_sofascore_event(
             values["state"],
         )
 
-    except Exception as error:
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        # A malformed or unexpected payload should show NOT_FOUND on the
+        # sensor, not raise through the coordinator.
         _LOGGER.error("%s: Error processing SofaScore event: %s", sensor_name, error)
         _LOGGER.exception("Full traceback:")
         values["api_message"] = f"Error processing event data: {str(error)}"
@@ -345,12 +345,12 @@ async def async_process_sofascore_event(
 
 
 async def async_get_sofascore_statistics(
-    values: Dict[str, Any],
+    values: dict[str, Any],
     event_id: int,
     team_id: int,
     api_client: SofaScoreAPI,
     sensor_name: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Fetch and add statistics to values dict
 
     Args:
@@ -416,7 +416,8 @@ async def async_get_sofascore_statistics(
 
         _LOGGER.debug("%s: Added statistics for event %s", sensor_name, event_id)
 
-    except Exception as error:
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        # Statistics are optional garnish; never let them fail an update.
         _LOGGER.debug("%s: Could not fetch statistics: %s", sensor_name, error)
 
     return values

@@ -309,7 +309,6 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
     async def async_update_game_data(self, config, hass) -> dict:
         """Update game data from data_cache or the API (if expired)"""
 
-        sensor_name = self.name
         sport_path = self.sport_path
         team_name = self.team_id
 
@@ -340,7 +339,7 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         #  Call the SofaScore API
         #
 
-        data, file_override = await self.async_call_api(config, hass, lang)
+        data, _ = await self.async_call_api(config, hass, lang)
         values = await self.async_update_values(config, hass, data, lang)
         self.data_cache[key] = data
         self.last_update[key] = values["last_update"]
@@ -421,7 +420,9 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
             # unavailable, rather than silently showing "no game".
             self.api_url = "SofaScore API Error"
             raise
-        except Exception as error:
+        except Exception as error:  # pylint: disable=broad-exception-caught
+            # Deliberately broad: an unexpected client-side failure should
+            # leave the sensor without a game, not break every other sensor.
             _LOGGER.error(
                 "%s: Error calling SofaScore API for '%s': %s",
                 sensor_name,

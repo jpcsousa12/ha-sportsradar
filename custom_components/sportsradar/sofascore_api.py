@@ -1,6 +1,6 @@
 """SofaScore API Client for SportsRadar"""
 import logging
-from typing import Optional, Dict, List, Any
+from typing import Any
 import aiohttp
 import asyncio
 
@@ -62,7 +62,7 @@ class SofaScoreAPI:
             timeout: Request timeout in seconds
         """
         self.timeout = aiohttp.ClientTimeout(total=timeout)
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session"""
@@ -76,7 +76,7 @@ class SofaScoreAPI:
             await self.session.close()
             self.session = None
 
-    async def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Optional[Dict]:
+    async def _make_request(self, endpoint: str, params: dict | None = None) -> dict | None:
         """Make a request to SofaScore API
 
         Args:
@@ -146,14 +146,14 @@ class SofaScoreAPI:
             f"SofaScore request to {endpoint} failed after {MAX_ATTEMPTS} attempts: {last_error}"
         )
 
-    async def search_teams(self, query: str) -> List[Dict[str, Any]]:
+    async def search_teams(self, query: str) -> list[dict[str, Any]]:
         """Search for teams by name
 
         Args:
             query: Team name to search for
 
         Returns:
-            List of team dictionaries with id, name, slug, sport, etc.
+            list of team dictionaries with id, name, slug, sport, etc.
         """
         endpoint = "/search/all"
         params = {"q": query}
@@ -187,7 +187,7 @@ class SofaScoreAPI:
         _LOGGER.debug("Found %d teams for query '%s'", len(teams), query)
         return teams
 
-    async def get_team_next_event(self, team_id: int, page: int = 0) -> Optional[Dict]:
+    async def get_team_next_event(self, team_id: int, page: int = 0) -> dict | None:
         """Get next upcoming event for a team
 
         Args:
@@ -212,7 +212,7 @@ class SofaScoreAPI:
 
         return None
 
-    async def get_team_last_event(self, team_id: int, page: int = 0) -> Optional[Dict]:
+    async def get_team_last_event(self, team_id: int, page: int = 0) -> dict | None:
         """Get last completed event for a team
 
         Args:
@@ -239,7 +239,7 @@ class SofaScoreAPI:
 
         return None
 
-    async def get_event_details(self, event_id: int) -> Optional[Dict]:
+    async def get_event_details(self, event_id: int) -> dict | None:
         """Get detailed information about a specific event
 
         Args:
@@ -252,7 +252,7 @@ class SofaScoreAPI:
 
         return await self._make_request(endpoint)
 
-    async def get_event_statistics(self, event_id: int) -> Optional[Dict]:
+    async def get_event_statistics(self, event_id: int) -> dict | None:
         """Get statistics for a specific event
 
         Args:
@@ -265,7 +265,7 @@ class SofaScoreAPI:
 
         return await self._make_request(endpoint)
 
-    async def get_event_lineups(self, event_id: int) -> Optional[Dict]:
+    async def get_event_lineups(self, event_id: int) -> dict | None:
         """Get lineups for a specific event
 
         Args:
@@ -278,7 +278,7 @@ class SofaScoreAPI:
 
         return await self._make_request(endpoint)
 
-    async def get_team_info(self, team_id: int) -> Optional[Dict]:
+    async def get_team_info(self, team_id: int) -> dict | None:
         """Get team information
 
         Args:
@@ -291,7 +291,7 @@ class SofaScoreAPI:
 
         return await self._make_request(endpoint)
 
-    async def find_team_by_name(self, team_name: str, sport: str = "football") -> Optional[Dict]:
+    async def find_team_by_name(self, team_name: str, sport: str = "football") -> dict | None:
         """Find a specific team by name and sport
 
         Args:
@@ -326,7 +326,7 @@ class SofaScoreAPI:
         # Return first team if no sport filter
         return teams[0] if teams else None
 
-    async def get_team_live_event(self, team_id: int, sport: str = "football") -> Optional[Dict]:
+    async def get_team_live_event(self, team_id: int, sport: str = "football") -> dict | None:
         """Get the currently in-progress event for a team, if any.
 
         Uses the live feed for the sport, which only contains matches that are
@@ -350,13 +350,13 @@ class SofaScoreAPI:
         for event in data.get("events", []):
             home_id = event.get("homeTeam", {}).get("id")
             away_id = event.get("awayTeam", {}).get("id")
-            if home_id == team_id or away_id == team_id:
+            if team_id in (home_id, away_id):
                 _LOGGER.debug("Found live event for team %s: %s", team_id, event.get("id"))
                 return event
 
         return None
 
-    async def get_event(self, event_id: int) -> Optional[Dict]:
+    async def get_event(self, event_id: int) -> dict | None:
         """Get a single event by ID.
 
         This is the cheap path used for repeated polling: roughly 3 KB per

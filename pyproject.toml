@@ -21,6 +21,13 @@ py-version = "3.11"
 ignore = [
     "tests",
 ]
+# `ignore` only matches during directory expansion; CI runs
+# `pylint $(git ls-files '*.py')`, which names every file explicitly.
+# ignore-paths is applied to explicit arguments too.
+ignore-paths = [
+    "^tests/.*$",
+    "^custom_components/sportsradar/_espn_legacy/.*$",
+]
 # Use a conservative default here; 2 should speed up most setups and not hurt
 # any too bad. Override on command line as appropriate.
 jobs = 2

@@ -56,12 +56,21 @@ async def test_setup_platform(hass):
         entity_list.extend(entities)
         print(f"Adding entities: {entity_list}")
 
-    for test in PLATFORM_TEST_DATA:
-        await async_setup_platform(
-            hass,
-            test[0],
-            mock_async_add_entities_callback,
-            discovery_info=None,
-        )
+    patchers = patch_sofascore()
+    try:
+        for test in PLATFORM_TEST_DATA:
+            await async_setup_platform(
+                hass,
+                test[0],
+                mock_async_add_entities_callback,
+                discovery_info=None,
+            )
 
-        assert (DOMAIN in hass.data) == test[1]
+            assert (DOMAIN in hass.data) == test[1]
+    finally:
+        for patcher in patchers:
+            patcher.stop()
+
+    # The YAML platform path starts a coordinator per entry; let them settle so
+    # no refresh task outlives the test.
+    await hass.async_block_till_done()

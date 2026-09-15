@@ -19,12 +19,9 @@ from .const import (
     CONF_LEAGUE_PATH,
     CONF_SPORT_PATH,
     CONF_TEAM_ID,
-    DEFAULT_CONFERENCE_ID,
-    DEFAULT_LEAGUE,
     DEFAULT_NAME,
     DEFAULT_SPORT_PATH,
     DOMAIN,
-    LEAGUE_MAP,
     SPORT_OPTIONS,
 )
 
@@ -53,7 +50,7 @@ def _get_schema(
         return user_input.get(key, default_dict.get(key, fallback_default))
 
     # Create sport selector dictionary
-    sport_dict = {sport_id: sport_name for sport_id, sport_name in SPORT_OPTIONS}
+    sport_dict = dict(SPORT_OPTIONS)
 
     return vol.Schema(
         {
