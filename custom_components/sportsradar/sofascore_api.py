@@ -55,26 +55,40 @@ SPORT_MAP = {
 class SofaScoreAPI:
     """Class to interact with SofaScore unofficial API"""
 
-    def __init__(self, timeout: int = 30):
+    def __init__(self, timeout: int = 30, session: aiohttp.ClientSession | None = None):
         """Initialize the SofaScore API client
 
         Args:
             timeout: Request timeout in seconds
+            session: An existing aiohttp session to use. Inside Home Assistant
+                pass async_get_clientsession(hass): HA configures its own DNS
+                resolver and SSL context there, and a session created here
+                instead picks up aiohttp's defaults, which can fail outright
+                (for example "Channel.getaddrinfo() takes 3 positional
+                arguments" when the installed aiodns/pycares disagree). It is
+                also the session HA closes on shutdown. When no session is
+                given - standalone scripts - one is created and owned here.
         """
         self.timeout = aiohttp.ClientTimeout(total=timeout)
-        self.session: aiohttp.ClientSession | None = None
+        self.session: aiohttp.ClientSession | None = session
+        self._owns_session = session is None
 
     async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create aiohttp session"""
+        """Get the shared session, or create one we own."""
         if self.session is None or self.session.closed:
-            self.session = aiohttp.ClientSession(headers=SOFASCORE_HEADERS)
+            self.session = aiohttp.ClientSession()
+            self._owns_session = True
         return self.session
 
     async def close(self):
-        """Close the aiohttp session"""
-        if self.session and not self.session.closed:
+        """Close the session, but only if we created it.
+
+        Closing a session owned by Home Assistant would break every other
+        integration sharing it.
+        """
+        if self._owns_session and self.session and not self.session.closed:
             await self.session.close()
-            self.session = None
+        self.session = None
 
     async def _make_request(self, endpoint: str, params: dict | None = None) -> dict | None:
         """Make a request to SofaScore API
@@ -97,7 +111,12 @@ class SofaScoreAPI:
         for attempt in range(1, MAX_ATTEMPTS + 1):
             try:
                 session = await self._get_session()
-                async with session.get(url, params=params, timeout=self.timeout) as response:
+                async with session.get(
+                    url,
+                    params=params,
+                    headers=SOFASCORE_HEADERS,
+                    timeout=self.timeout,
+                ) as response:
                     if response.status == 200:
                         return await response.json()
 

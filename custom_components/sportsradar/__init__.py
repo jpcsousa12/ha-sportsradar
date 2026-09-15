@@ -14,6 +14,7 @@ from homeassistant.helpers.entity_registry import ( # pylint: disable=reimported
     async_get,
     async_get as async_get_entity_registry,
 )
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .clear_values import async_clear_values
@@ -221,7 +222,11 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         self.entry = entry #None if setup from YAML
 
         # Initialize SofaScore API client
-        self.sofascore_api = SofaScoreAPI(timeout=DEFAULT_TIMEOUT)
+        # Use Home Assistant's shared session: it carries HA's DNS
+        # resolver and SSL context, and HA closes it on shutdown.
+        self.sofascore_api = SofaScoreAPI(
+            timeout=DEFAULT_TIMEOUT, session=async_get_clientsession(hass)
+        )
         self.sofascore_team_id = None  # Will be populated after team search
         self.sofascore_event_id = None  # Fixture currently being tracked
 

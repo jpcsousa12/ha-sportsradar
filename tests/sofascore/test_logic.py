@@ -82,7 +82,7 @@ class FlakySession:
         self.attempts = 0
         self.closed = False
 
-    def get(self, url, params=None, timeout=None):
+    def get(self, url, params=None, headers=None, timeout=None):
         self.attempts += 1
         return FlakyResponse(self.statuses.pop(0))
 
