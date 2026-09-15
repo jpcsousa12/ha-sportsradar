@@ -302,3 +302,60 @@ async def test_blocked_live_feed_does_not_fail_the_update(hass, socket_enabled):
     state = hass.states.get("sensor.test_sofascore_porto")
     assert state is not None
     assert state.state == "PRE"
+
+
+async def test_first_update_has_venue_from_the_detail_endpoint(hass, socket_enabled):
+    """Resolution must upgrade a list item to the full event record.
+
+    /team/{id}/events/next returns a trimmed event with no venue or city;
+    only /event/{id} carries them. Without the upgrade the sensor shows blank
+    venue until the next refresh.
+    """
+    listed = dict(FIX["pre_event"])
+    listed.pop("venue", None)
+
+    detailed = dict(FIX["pre_event"])
+    detailed["venue"] = {
+        "stadium": {"name": "Estadio do Dragao"},
+        "city": {"name": "Porto"},
+    }
+
+    patches = [
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.find_team_by_name",
+            return_value=TEAM_RESULT,
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_team_last_event",
+            return_value=None,
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_team_next_event",
+            return_value=listed,
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_event",
+            return_value=detailed,
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_event_statistics",
+            return_value=None,
+        ),
+    ]
+    for p in patches:
+        p.start()
+    try:
+        entry = MockConfigEntry(
+            domain=DOMAIN, title="team_tracker", data=CONFIG_SOFASCORE
+        )
+        entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    finally:
+        for p in patches:
+            p.stop()
+
+    state = hass.states.get("sensor.test_sofascore_porto")
+    assert state is not None
+    assert state.state == "PRE"
+    assert state.attributes.get("venue") == "Estadio do Dragao"

@@ -588,6 +588,13 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
 
         if event:
             self.sofascore_event_id = event.get("id")
+
+            # The list endpoints return a trimmed event: no venue, no city.
+            # Fetch the full record now so the first update is complete,
+            # rather than leaving those blank until the next refresh.
+            detail = await self.sofascore_api.get_event(self.sofascore_event_id)
+            if detail:
+                event = detail
         else:
             self.sofascore_event_id = None
             _LOGGER.debug("%s: No event found for team '%s'", sensor_name, team_name)
