@@ -20,20 +20,23 @@ if sys.platform == "win32":
     pytest_socket.socket_allow_hosts = lambda *args, **kwargs: None
 
 
-if sys.platform == "win32":
-    # Home Assistant's shared aiohttp session uses aiohttp's AsyncResolver,
-    # which is backed by aiodns and requires a SelectorEventLoop on Windows -
-    # but HA's own loop policy hands pytest a ProactorEventLoop, so setting up
-    # any entry raises "aiodns needs a SelectorEventLoop on Windows".
-    #
-    # Swap in the threaded resolver for tests on Windows. This only affects how
-    # names are resolved, and these tests patch the SofaScore client anyway so
-    # nothing is resolved at all. Linux CI exercises the real AsyncResolver
-    # path.
-    import aiohttp.resolver
-    import homeassistant.helpers.aiohttp_client as _ha_aiohttp_client
+# Home Assistant's shared aiohttp session resolves names with aiohttp's
+# AsyncResolver, which is backed by aiodns/pycares. That is right in
+# production, but hostile to tests:
+#
+#   - on Linux, pycares starts a daemon thread that outlives the test, and
+#     HA's teardown check fails on the lingering "_run_safe_shutdown_loop"
+#   - on Windows, aiodns requires a SelectorEventLoop while HA's loop policy
+#     hands pytest a ProactorEventLoop, so setting up any entry raises
+#     "aiodns needs a SelectorEventLoop on Windows"
+#
+# Swap in the threaded resolver for tests. It only changes how names are
+# resolved, and these tests patch the SofaScore client, so nothing is
+# resolved at all.
+import aiohttp.resolver  # noqa: E402
+import homeassistant.helpers.aiohttp_client as _ha_aiohttp_client  # noqa: E402
 
-    _ha_aiohttp_client.AsyncResolver = aiohttp.resolver.ThreadedResolver
+_ha_aiohttp_client.AsyncResolver = aiohttp.resolver.ThreadedResolver
 
 
 @pytest.fixture(autouse=True)
