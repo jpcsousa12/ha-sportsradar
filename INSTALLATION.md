@@ -1,75 +1,65 @@
 # Installation & Testing Guide
 
-## 🧪 Step 1: Test Locally (Before Installing to Home Assistant)
+## 🧪 Step 1: Check it works before installing
 
-### Option A: Quick Test (Windows)
+Run these from a clone of this repository. They need only `aiohttp` and
+`arrow` (`pip install aiohttp arrow`).
+
 ```bash
-# Double-click this file:
-run_tests.bat
+# Does this machine reach SofaScore at all? Run this ON the HA host.
+python tests/sofascore/check_connection.py "FC Porto"
 
-# Or run from command line:
-cd C:\Users\joao.sousa\PycharmProjects\ha-sportsradar
-run_tests.bat
+# Try any team - by SofaScore id, or by name
+python tests/sofascore/try_team.py 3002
+python tests/sofascore/try_team.py "FC Porto"
+
+# Which teams are playing right now (gives you ids to try)
+python tests/sofascore/try_team.py --live
+
+# Follow a live match, refreshing as the integration does
+python tests/sofascore/try_team.py 3002 --watch
 ```
 
-### Option B: Quick Test (Manual)
-```bash
-# Test API connectivity
-python quick_test.py
+Success looks like:
 
-# Test full integration with default team
-python test_sofascore.py
-
-# Test with specific team
-python test_sofascore.py "Manchester United"
-python test_sofascore.py "Barcelona"
-python test_sofascore.py "Benfica"
-
-# Test with different sport
-python test_sofascore.py "Lakers:basketball"
-python test_sofascore.py "Federer:tennis"
+```
+Resolved 'FC Porto' -> FC Porto (id 3002)
+  Competition    Liga Portugal Betclic
+  State          PRE
+  Kick-off       2026-09-20 19:30 UTC  (5d 6h from now)
 ```
 
-### Expected Output
+Failure looks like:
 
-✅ **Success looks like:**
 ```
-================================================================================
-  SofaScore API Test Script
-================================================================================
-
-================================================================================
-  TEST 1: Searching for 'Manchester United' in football
-================================================================================
-
-  ✅ Found 5 team(s):
-
-  Teams matching sport 'football':
-
-  [1]
-  ID:      35
-  Name:    Manchester United
-  Sport:   Football
-  Country: England
-  ...
+SofaScore error: SofaScore refused the request (403 Forbidden)
 ```
 
-❌ **Failure looks like:**
-```
-❌ 403 Forbidden - Need to update headers
-```
-If you see 403, the API headers need updating (let me know!)
+A 403 means SofaScore's edge cache is blocking that host. It is
+network-specific, which is why this is worth running on the Home Assistant
+machine itself rather than only on your laptop.
 
 ## 🏠 Step 2: Install to Home Assistant
 
 ### Method 1: Manual Installation
 
 1. **Copy files to Home Assistant:**
-   ```bash
-   # Copy the entire sportsradar folder to your HA config
-   Copy from: C:\Users\joao.sousa\PycharmProjects\ha-sportsradar\custom_components\sportsradar
-   Copy to: \\<your-ha-server>\config\custom_components\sportsradar
+
+   Copy the whole `custom_components/sportsradar/` folder into your Home
+   Assistant configuration directory, so you end up with:
+
    ```
+   <ha-config>/custom_components/sportsradar/
+       __init__.py
+       manifest.json
+       sensor.py
+       sofascore_api.py
+       ...
+   ```
+
+   `<ha-config>` is the folder holding `configuration.yaml` - typically
+   `/config` on HA OS, or `~/.homeassistant` on a container/core install.
+   Create `custom_components/` if it does not exist.
 
 2. **Restart Home Assistant:**
    - Go to Settings → System → Restart
@@ -79,7 +69,8 @@ If you see 403, the API headers need updating (let me know!)
    - Click "+ Add Integration"
    - Search for "SportsRadar"
    - Fill in:
-     - **Team Name**: `Benfica` (or your team)
+     - **Team/Athlete**: `Benfica` (or your team) - the team
+       **name**, which SofaScore searches for; not a numeric id
      - **Sport**: Select `Football (Soccer)` from dropdown
      - **Name**: `benfica` (sensor will be `sensor.benfica`)
 
@@ -88,18 +79,19 @@ If you see 403, the API headers need updating (let me know!)
    - Search for `sensor.benfica`
    - Check attributes like `team_name`, `opponent_name`, `date`, etc.
 
-### Method 2: HACS (If you prefer)
+### Method 2: HACS
 
-*Note: This won't be in official HACS unless you add it as a custom repository*
+This repository is **private**, and HACS cannot read a private repository
+unless it is given a GitHub token with access to it. For the HACS route,
+either make the repository public first, or configure HACS with such a
+token. Otherwise use Method 1 - for a single-user setup, copying the folder
+is simpler and has no downside.
 
-1. Add custom repository:
-   - HACS → Integrations → ⋮ → Custom repositories
-   - Add: `https://github.com/<your-fork>/ha-sportsradar`
-   - Category: Integration
+If the repository is public:
 
-2. Install and restart
-
-3. Add integration as above
+1. HACS -> Integrations -> three-dot menu -> Custom repositories
+2. Add `https://github.com/jpcsousa12/ha-sportsradar`, category **Integration**
+3. Install, restart Home Assistant, then add the integration as above
 
 ## 📋 Step 3: Verification Checklist
 
@@ -266,7 +258,7 @@ To update the integration:
    ```
 
 3. **Test locally:**
-   - Run `python test_sofascore.py "Your Team"`
+   - Run `python tests/sofascore/try_team.py "Your Team"`
    - Check what error you get
 
 4. **Report issues:**
