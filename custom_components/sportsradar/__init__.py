@@ -380,6 +380,20 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
                     self.sofascore_team_id,
                     team_name,
                 )
+            elif str(team_name).strip().isdigit():
+                # A numeric value is a SofaScore team id, so the search
+                # endpoint can be skipped entirely. That matters because
+                # /search/all is the endpoint SofaScore blocks first: some
+                # hosts get 403 there while every other endpoint works.
+                self.sofascore_team_id = int(str(team_name).strip())
+                SportsRadarDataUpdateCoordinator.team_cache[cache_key] = (
+                    self.sofascore_team_id
+                )
+                _LOGGER.info(
+                    "%s: Using SofaScore team id %s directly (no search)",
+                    sensor_name,
+                    self.sofascore_team_id,
+                )
             else:
                 # Search for team
                 _LOGGER.debug(

@@ -8,7 +8,7 @@
         "description": "Enter the League and Team to create the sensor.\n\nLeague: NFL, NCAAF, MLB, NBA, WNBA, NCAAM, NCAAW, NCAAVB, NCAAVBW, MLS, NWSL, BUND, CL, CLA, EPL, LIGA, LIG1, SERA, WC, PGA, ATP, WTA, F1, IRL, XFL\n\nTeam: 2-4 letter team abreviation used on ESPN's scoreboards and stats pages\n\nConference Number: For NCAA football and basketball only.  See README.md for valid values.  Leave blank to only include games with ranked teams.",
         "data": {
           "league_id": "League",
-          "team_id": "Team/Athlete",  
+          "team_id": "Team/Athlete (name, or SofaScore numeric id)",
           "name": "Friendly Name",
           "timeout": "Update Timeout (in seconds)",
           "conference_id": "Conference Number"
@@ -18,7 +18,7 @@
         "title": "Custom API Configurator",
         "description": "Enter the 'sport' and 'league' portion of the ESPN API path to use a self-configured API",
         "data": {
-          "sport_path": "Sport Path", 
+          "sport_path": "Sport Path",
           "league_path": "League Path"
         }
       }

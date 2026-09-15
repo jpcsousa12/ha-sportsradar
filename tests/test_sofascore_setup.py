@@ -158,3 +158,43 @@ async def test_states_end_to_end(hass, socket_enabled, fixture_name, expected):
     state = hass.states.get("sensor.test_sofascore_porto")
     assert state is not None
     assert state.state == expected
+
+
+async def test_numeric_team_id_skips_the_search_endpoint(hass, socket_enabled):
+    """A numeric team id must not call find_team_by_name.
+
+    SofaScore returns 403 on /search/all from some hosts while the rest of the
+    API keeps working, so configuring the id has to be a complete way around
+    it.
+    """
+    config = dict(CONFIG_SOFASCORE)
+    config["team_id"] = "3002"  # FC Porto, as an id rather than a name
+
+    search_calls = []
+
+    async def _must_not_be_called(*args, **kwargs):
+        search_calls.append(args)
+        raise AssertionError("find_team_by_name was called for a numeric id")
+
+    patches = _patch_api(next_event=FIX["pre_event"], event=FIX["pre_event"])
+    for p in patches:
+        p.start()
+    try:
+        with patch(
+            "custom_components.sportsradar.SofaScoreAPI.find_team_by_name",
+            side_effect=_must_not_be_called,
+        ):
+            entry = MockConfigEntry(
+                domain=DOMAIN, title="team_tracker", data=config
+            )
+            entry.add_to_hass(hass)
+            assert await hass.config_entries.async_setup(entry.entry_id)
+            await hass.async_block_till_done()
+    finally:
+        for p in patches:
+            p.stop()
+
+    assert not search_calls
+    state = hass.states.get("sensor.test_sofascore_porto")
+    assert state is not None
+    assert state.state == "PRE"

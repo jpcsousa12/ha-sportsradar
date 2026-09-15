@@ -128,9 +128,18 @@ class SofaScoreAPI:
                     if response.status == 403:
                         # Blocked at the edge. Retrying with identical headers
                         # will not help, so fail fast and surface it.
+                        hint = ""
+                        if endpoint.startswith("/search"):
+                            hint = (
+                                " SofaScore blocks the search endpoint from some"
+                                " hosts while the rest of the API still works:"
+                                " configure the numeric SofaScore team id"
+                                " (for example 3002) instead of the team name"
+                                " and no search is needed."
+                            )
                         raise SofaScoreApiError(
-                            f"SofaScore refused the request (403 Forbidden) for {endpoint}. "
-                            "The API is blocking this client - headers may need updating."
+                            f"SofaScore refused the request (403 Forbidden) for "
+                            f"{endpoint}.{hint}"
                         )
 
                     if response.status == 429 or response.status >= 500:
