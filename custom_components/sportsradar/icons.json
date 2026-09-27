@@ -1,0 +1,10 @@
+{
+  "services": {
+    "call_api": {
+      "service": "mdi:radar"
+    },
+    "diagnose": {
+      "service": "mdi:lan-connect"
+    }
+  }
+}

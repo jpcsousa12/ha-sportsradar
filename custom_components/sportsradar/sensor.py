@@ -33,7 +33,6 @@ from .const import (
     DOMAIN,
     ISSUE_URL,
     LEAGUE_MAP,
-    SPORT_ICON_MAP,
     VERSION,
 )
 
@@ -180,13 +179,10 @@ class SportsRadarScoresSensor(CoordinatorEntity):
                 sensor_name,
             )
 
-        icon = SPORT_ICON_MAP.get(sport_path, DEFAULT_ICON)
-        if icon == DEFAULT_ICON:
-            _LOGGER.debug(
-                "%s:  Initializing sensor values.  Sport icon not found for sport '%s'",
-                sensor_name,
-                sport_path,
-            )
+        # One icon for the integration rather than one per sport, so the
+        # entities are recognisable as Sports Radar. SPORT_ICON_MAP in const.py
+        # holds the per-sport icons if you prefer those.
+        icon = DEFAULT_ICON
 
         self.coordinator = sensor_coordinator
         self._entry_id = entry_id

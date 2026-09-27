@@ -1,4 +1,13 @@
-# SportsRadar - SofaScore Edition
+<p align="center">
+  <img src="brands/sportsradar/logo.png" alt="Sports Radar" width="440">
+</p>
+
+<h1 align="center">Sports Radar</h1>
+
+<p align="center">
+  Home Assistant sports tracker powered by the SofaScore API.
+</p>
+
 
 > **Fork notice.** This project is derived from
 > [vasqued2/ha-teamtracker](https://github.com/vasqued2/ha-teamtracker) and is

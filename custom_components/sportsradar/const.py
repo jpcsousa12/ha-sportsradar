@@ -179,7 +179,10 @@ SPORT_ICON_MAP = {
 
 # Defaults
 DEFAULT_CONFERENCE_ID = ""
-DEFAULT_ICON = "mdi:scoreboard"
+# The integration's own identity. Sport-specific icons are still in
+# SPORT_ICON_MAP above if you would rather show the sport: swap this
+# lookup back in sensor.py.
+DEFAULT_ICON = "mdi:radar"
 DEFAULT_LEAGUE = ""  # No default league in SofaScore mode
 DEFAULT_LOGO = (
     "https://cdn0.iconfinder.com/data/icons/shift-interfaces/32/Error-512.png"
