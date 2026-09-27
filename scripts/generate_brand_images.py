@@ -47,6 +47,16 @@ FONT_CANDIDATES = (
 )
 
 
+def _trim(img):
+    """Crop away fully transparent edges.
+
+    home-assistant/brands rejects images with empty space around the artwork,
+    so every output is trimmed to its alpha bounding box before resizing.
+    """
+    bbox = img.getbbox()
+    return img.crop(bbox) if bbox else img
+
+
 def _font(size):
     for path in FONT_CANDIDATES:
         if os.path.exists(path):
@@ -151,7 +161,7 @@ def build_icon(size):
     pin = s * 0.022
     draw.ellipse([cx - pin, cy - pin, cx + pin, cy + pin], fill=GREEN)
 
-    return img.resize((size, size), Image.Resampling.LANCZOS)
+    return _trim(img).resize((size, size), Image.Resampling.LANCZOS)
 
 
 def build_logo(height):
@@ -177,18 +187,32 @@ def build_logo(height):
     x = icon_px + gap
     draw.text((x, height * 0.11), "SPORTS", font=font, fill=SLATE)
     draw.text((x, height * 0.51), "RADAR", font=font, fill=GREEN)
-    return img
+
+    # Trim, then scale back so the height is exactly what was asked for.
+    img = _trim(img)
+    scale = height / img.height
+    return img.resize(
+        (max(1, round(img.width * scale)), height), Image.Resampling.LANCZOS
+    )
 
 
 def main():
     """Write every brand image and report what was produced."""
     os.makedirs(OUT_DIR, exist_ok=True)
 
+    # Build the @2x versions and halve them, so the 1x is exactly half the
+    # 2x in both dimensions. Rounding each size independently can leave the
+    # widths a pixel or two apart, which their CI rejects.
+    icon_2x = build_icon(512)
+    logo_2x = build_logo(512)
+
     outputs = {
-        "icon.png": build_icon(256),
-        "icon@2x.png": build_icon(512),
-        "logo.png": build_logo(256),
-        "logo@2x.png": build_logo(512),
+        "icon.png": icon_2x.resize((256, 256), Image.Resampling.LANCZOS),
+        "icon@2x.png": icon_2x,
+        "logo.png": logo_2x.resize(
+            (logo_2x.width // 2, logo_2x.height // 2), Image.Resampling.LANCZOS
+        ),
+        "logo@2x.png": logo_2x,
     }
 
     for name, image in outputs.items():
