@@ -199,8 +199,9 @@ async def test_retry_and_backoff():
         check("recovers after 429 then 500", result == {"ok": True}, "(got %s)" % result)
         check("made exactly 3 attempts", session.attempts == 3, "(got %s)" % session.attempts)
 
+        # Transient failures are retried per host, and there are two hosts.
         api2 = SofaScoreAPI()
-        session2 = FlakySession([500, 500, 500])
+        session2 = FlakySession([500] * (3 * 2))
         api2.session = session2
         api2._get_session = lambda: asyncio.sleep(0, result=session2)
         try:
@@ -344,6 +345,93 @@ async def test_requests_use_the_browser_cipher_order():
     )
 
 
+async def test_falls_back_to_the_other_host_on_403():
+    print("")
+    print("host fallback when one host refuses the client")
+
+    class HostAwareResponse:
+        def __init__(self, status):
+            self.status = status
+            self.headers = {}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def json(self):
+            return {"ok": True}
+
+    class HostAwareSession:
+        """403 from api.sofascore.com, 200 from api.sofascore.app."""
+
+        def __init__(self):
+            self.urls = []
+
+        def get(self, url, params=None, headers=None, timeout=None, ssl=None):
+            self.urls.append(url)
+            status = 403 if "api.sofascore.com" in url else 200
+            return HostAwareResponse(status)
+
+    sofascore_api._ACTIVE_BASE_INDEX = 0
+    api = SofaScoreAPI()
+    session = HostAwareSession()
+    api.session = session
+    api._get_session = lambda: asyncio.sleep(0, result=session)
+
+    result = await api._make_request("/team/3002/events/last/0")
+    check("a blocked host falls back to the other", result == {"ok": True},
+          "(got %s)" % result)
+    check("the second host was actually tried",
+          any("api.sofascore.app" in u for u in session.urls),
+          "(tried %s)" % session.urls)
+
+    # The working host should now be tried first.
+    session.urls.clear()
+    await api._make_request("/team/3002/events/next/0")
+    check("the working host is remembered",
+          "api.sofascore.app" in session.urls[0],
+          "(first try was %s)" % session.urls[0])
+
+    sofascore_api._ACTIVE_BASE_INDEX = 0
+
+
+async def test_all_hosts_refused_raises():
+    print("")
+    print("every host refusing is still an error")
+
+    class RefusingResponse:
+        status = 403
+        headers = {}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+    class RefusingSession:
+        def get(self, url, params=None, headers=None, timeout=None, ssl=None):
+            return RefusingResponse()
+
+    api = SofaScoreAPI()
+    session = RefusingSession()
+    api.session = session
+    api._get_session = lambda: asyncio.sleep(0, result=session)
+
+    try:
+        await api._make_request("/team/3002/events/last/0")
+        check("raises when no host accepts the client", False)
+    except SofaScoreApiError as error:
+        check("raises when no host accepts the client", True)
+        check("the message names both hosts",
+              "api.sofascore.com" in str(error) and "api.sofascore.app" in str(error),
+              "(got %s)" % error)
+
+    sofascore_api._ACTIVE_BASE_INDEX = 0
+
+
 async def main():
     tests = (
         test_status_mapping,
@@ -355,6 +443,8 @@ async def main():
         test_processing_end_to_end,
         test_statistics_periods,
         test_requests_use_the_browser_cipher_order,
+        test_falls_back_to_the_other_host_on_403,
+        test_all_hosts_refused_raises,
     )
     for test in tests:
         try:

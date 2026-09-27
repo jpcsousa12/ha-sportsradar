@@ -74,12 +74,29 @@ class SofaScoreApiError(Exception):
     because "this team has no upcoming match" is a normal answer.
     """
 
-# SofaScore API Base URL
-SOFASCORE_API_BASE = "https://api.sofascore.com/api/v1"
+# SofaScore API Base URLs. The two hosts serve identical data, and they are
+# not blocked in lockstep - when one refuses a client the other has kept
+# working. Requests fall back to the next one on 403 and remember whichever
+# answered.
+SOFASCORE_API_BASES = (
+    "https://api.sofascore.com/api/v1",
+    "https://api.sofascore.app/api/v1",
+)
+# Kept for callers that reference it (logging, diagnostics).
+SOFASCORE_API_BASE = SOFASCORE_API_BASES[0]
+
+_ACTIVE_BASE_INDEX = 0
 
 # Headers to mimic a normal browser request and avoid 403 errors
 SOFASCORE_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    # Identify honestly. A spoofed Chrome User-Agent used to be needed to get
+    # past SofaScore's edge; it is now the thing that gets refused - every
+    # other User-Agent, including Home Assistant's own, is accepted while the
+    # Chrome one returns 403 on api.sofascore.com.
+    "User-Agent": (
+        "HomeAssistant-SportsRadar/1.2.0 "
+        "(+https://github.com/jpcsousa12/ha-sportsradar)"
+    ),
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.9",
     "Accept-Encoding": "gzip, deflate",
@@ -148,6 +165,11 @@ class SofaScoreAPI:
     async def _make_request(self, endpoint: str, params: dict | None = None) -> dict | None:
         """Make a request to SofaScore API
 
+        Tries each API host in turn. A 403 means this client is refused by
+        that host's edge, and the hosts are not blocked in lockstep, so the
+        next one is tried before giving up. Whichever host answers is
+        remembered and used first next time.
+
         Args:
             endpoint: API endpoint (without base URL)
             params: Optional query parameters
@@ -156,79 +178,92 @@ class SofaScoreAPI:
             JSON response as dict, or None if the resource does not exist (404)
 
         Raises:
-            SofaScoreApiError: on 403, 429, 5xx, timeouts or network errors, so
-                the caller can mark the sensor unavailable instead of silently
-                reporting "no game".
+            SofaScoreApiError: when every host refuses, or on 429, 5xx,
+                timeouts and network errors, so the caller can mark the sensor
+                unavailable instead of silently reporting "no game".
         """
-        url = f"{SOFASCORE_API_BASE}{endpoint}"
+        global _ACTIVE_BASE_INDEX  # pylint: disable=global-statement
+
         last_error = "unknown error"
+        refused = []
 
-        for attempt in range(1, MAX_ATTEMPTS + 1):
-            try:
-                session = await self._get_session()
-                ssl_context = await async_get_ssl_context()
-                async with session.get(
-                    url,
-                    params=params,
-                    headers=SOFASCORE_HEADERS,
-                    timeout=self.timeout,
-                    **({"ssl": ssl_context} if ssl_context else {}),
-                ) as response:
-                    if response.status == 200:
-                        return await response.json()
+        # Start with the host that worked last time.
+        order = [
+            SOFASCORE_API_BASES[(_ACTIVE_BASE_INDEX + offset) % len(SOFASCORE_API_BASES)]
+            for offset in range(len(SOFASCORE_API_BASES))
+        ]
 
-                    if response.status == 404:
-                        # Normal "nothing here" answer - not an error.
-                        _LOGGER.debug("SofaScore API returned 404 for %s", url)
-                        return None
+        for base in order:
+            url = f"{base}{endpoint}"
+            blocked = False
 
-                    if response.status == 403:
-                        # Blocked at the edge. Retrying with identical headers
-                        # will not help, so fail fast and surface it.
-                        hint = ""
-                        if endpoint.startswith("/search"):
-                            hint = (
-                                " SofaScore blocks the search endpoint from some"
-                                " hosts while the rest of the API still works:"
-                                " configure the numeric SofaScore team id"
-                                " (for example 3002) instead of the team name"
-                                " and no search is needed."
+            for attempt in range(1, MAX_ATTEMPTS + 1):
+                delay = BACKOFF_BASE * (2 ** (attempt - 1))
+                try:
+                    session = await self._get_session()
+                    ssl_context = await async_get_ssl_context()
+                    async with session.get(
+                        url,
+                        params=params,
+                        headers=SOFASCORE_HEADERS,
+                        timeout=self.timeout,
+                        **({"ssl": ssl_context} if ssl_context else {}),
+                    ) as response:
+                        if response.status in (200, 404):
+                            # This host is answering us; prefer it from now on.
+                            _ACTIVE_BASE_INDEX = SOFASCORE_API_BASES.index(base)
+                            if response.status == 404:
+                                _LOGGER.debug("SofaScore returned 404 for %s", url)
+                                return None
+                            return await response.json()
+
+                        if response.status == 403:
+                            # Refused by this host's edge. Retrying it with the
+                            # same client will not help - move to the next host.
+                            refused.append(base)
+                            blocked = True
+                            break
+
+                        if response.status == 429 or response.status >= 500:
+                            last_error = f"HTTP {response.status}"
+                            retry_after = response.headers.get("Retry-After")
+                            if retry_after:
+                                try:
+                                    delay = max(delay, float(retry_after))
+                                except ValueError:
+                                    pass
+                        else:
+                            raise SofaScoreApiError(
+                                f"SofaScore returned HTTP {response.status} for {endpoint}"
                             )
-                        raise SofaScoreApiError(
-                            f"SofaScore refused the request (403 Forbidden) for "
-                            f"{endpoint}.{hint}"
-                        )
 
-                    if response.status == 429 or response.status >= 500:
-                        last_error = f"HTTP {response.status}"
-                        retry_after = response.headers.get("Retry-After")
-                        delay = BACKOFF_BASE * (2 ** (attempt - 1))
-                        if retry_after:
-                            try:
-                                delay = max(delay, float(retry_after))
-                            except ValueError:
-                                pass
-                    else:
-                        raise SofaScoreApiError(
-                            f"SofaScore returned HTTP {response.status} for {endpoint}"
-                        )
+                except asyncio.TimeoutError:
+                    last_error = "timeout"
+                except aiohttp.ClientError as error:
+                    last_error = f"network error: {error}"
 
-            except asyncio.TimeoutError:
-                last_error = "timeout"
-                delay = BACKOFF_BASE * (2 ** (attempt - 1))
-            except aiohttp.ClientError as error:
-                last_error = f"network error: {error}"
-                delay = BACKOFF_BASE * (2 ** (attempt - 1))
+                if attempt < MAX_ATTEMPTS:
+                    _LOGGER.debug(
+                        "SofaScore request to %s failed (%s), retrying in %.1fs "
+                        "(attempt %d/%d)",
+                        url, last_error, delay, attempt, MAX_ATTEMPTS,
+                    )
+                    await asyncio.sleep(delay)
 
-            if attempt < MAX_ATTEMPTS:
-                _LOGGER.debug(
-                    "SofaScore request to %s failed (%s), retrying in %.1fs (attempt %d/%d)",
-                    url, last_error, delay, attempt, MAX_ATTEMPTS,
-                )
-                await asyncio.sleep(delay)
+            if blocked:
+                continue
+
+        if refused:
+            raise SofaScoreApiError(
+                f"SofaScore refused the request (403 Forbidden) for {endpoint} "
+                f"on every host ({', '.join(refused)}). This client is being "
+                f"blocked; run the sportsradar.diagnose service to see which "
+                f"configurations are accepted from this machine."
+            )
 
         raise SofaScoreApiError(
-            f"SofaScore request to {endpoint} failed after {MAX_ATTEMPTS} attempts: {last_error}"
+            f"SofaScore request to {endpoint} failed after {MAX_ATTEMPTS} "
+            f"attempts: {last_error}"
         )
 
     async def search_teams(self, query: str) -> list[dict[str, Any]]:
