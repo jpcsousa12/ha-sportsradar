@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Generate the brand images Home Assistant uses for this integration.
 
-Home Assistant takes integration icons and logos from the
-home-assistant/brands repository, which expects:
+Since Home Assistant 2026.3 a custom integration ships its own icon and
+logo in custom_components/<domain>/brand/, so these are written there and
+installed with the integration. Sizes follow the home-assistant/brands rules:
 
     icon.png      256x256, square, transparent background
     icon@2x.png   512x512
@@ -23,8 +24,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 OUT_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "brands",
+    "custom_components",
     "sportsradar",
+    "brand",
 )
 
 SS = 4  # supersampling factor

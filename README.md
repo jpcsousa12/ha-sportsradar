@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="brands/sportsradar/logo.png" alt="Sports Radar" width="440">
+  <img src="custom_components/sportsradar/brand/logo.png" alt="Sports Radar" width="440">
 </p>
 
 <h1 align="center">Sports Radar</h1>
