@@ -47,7 +47,7 @@ async def test_setup_platform(hass):
     # Mock implementation of async_add_entities callback
     entity_list = []
 
-    async def mock_async_add_entities_callback(
+    def mock_async_add_entities_callback(
         entities: list[Any], update_before_add: bool = False
     ) -> None:
         """Mock implementation of the async_add_entities callback."""

@@ -98,7 +98,15 @@ async def async_call_api_service(call: ServiceCall) -> None:
     sport_path = call.data[CONF_SPORT_PATH]
     team_id = call.data[CONF_TEAM_ID]
 
-    for entity_id in await async_extract_entity_ids(hass, call):
+    try:
+        # Recent releases take only the call; the hass argument was
+        # deprecated in late 2025 and stops working in 2026.10.
+        entity_ids = await async_extract_entity_ids(call)
+    except TypeError:
+        # Older releases require hass as the first argument.
+        entity_ids = await async_extract_entity_ids(hass, call)
+
+    for entity_id in entity_ids:
         coordinator = _coordinator_for_entity(hass, entity_id)
         if coordinator is None:
             # A YAML sensor whose name does not match its entity id (for
