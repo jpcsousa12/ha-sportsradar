@@ -39,7 +39,7 @@ before kickoff until the match ends (including a late kickoff).
 
 ## Installation
 
-Requires Home Assistant 2024.1 or later. The integration icon and logo show
+Requires Home Assistant 2025.1 or later. The integration icon and logo show
 from Home Assistant 2026.3.
 
 ### HACS (recommended)
@@ -195,14 +195,15 @@ the check on the Home Assistant host, not only on your laptop.
 ## Development
 
 ```bash
-pip install -r requirements_test.txt pylint pillow
+pip install -r requirements_test.txt pylint pillow ruff==0.17.6
 python -m pytest                       # Home Assistant tests
 python tests/sofascore/test_logic.py   # offline SofaScore checks
 pylint custom_components/sportsradar tests scripts
+ruff format --check custom_components/sportsradar tests scripts
 ```
 
-CI runs pytest with coverage (Python 3.12 and 3.13), pylint (Python 3.13),
-hassfest and the HACS action on every push.
+CI runs pytest with coverage (Python 3.12 and 3.13), pylint and the ruff
+format check (Python 3.13), hassfest and the HACS action on every push.
 
 ## Credits
 
