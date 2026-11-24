@@ -614,7 +614,7 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         values["sport_path"] = self.sport_path
         values["league"] = ""
         values["league_path"] = ""
-        values["league_logo"] = DEFAULT_LOGO
+        values["league_logo"] = ""
         values["team_abbr"] = team_name[:3].upper() if len(team_name) >= 3 else team_name.upper()
         values["state"] = "NOT_FOUND"
         values["last_update"] = arrow.now().format(arrow.FORMAT_W3C)

@@ -70,21 +70,74 @@ def get_period_name(status_code: int, status_type: str) -> str:
         Period name string
     """
     period_map = {
-        0: "Scheduled",
-        6: "1st Half",
-        7: "Halftime",
-        31: "2nd Half",
-        41: "1st Quarter",
-        42: "2nd Quarter",
-        43: "3rd Quarter",
-        44: "4th Quarter",
-        100: "Final",
-        110: "Awarded",
-        120: "Postponed",
-        130: "Cancelled",
+        0: "Not started",
+        6: "1st half",
+        7: "2nd half",
+        31: "Halftime",
+        41: "1st extra",
+        42: "2nd extra",
+        50: "Penalties",
+        60: "Postponed",
+        70: "Canceled",
+        100: "Ended",
+        110: "AET",
+        120: "AP",
     }
 
     return period_map.get(status_code, f"Status {status_code}")
+
+
+# Images are served from img.sofascore.com. The api.* hosts refuse most
+# browsers (403), and the logos are loaded by the user's browser, not by HA.
+IMG_BASE = "https://img.sofascore.com/api/v1"
+
+
+def _team_logo(team: dict) -> str:
+    return f"{IMG_BASE}/team/{team['id']}/image" if team.get("id") else ""
+
+
+def _team_url(team: dict, sport: str) -> str:
+    if team.get("id") and team.get("slug"):
+        return f"https://www.sofascore.com/team/{sport}/{team['slug']}/{team['id']}"
+    return ""
+
+
+def _abbr(team: dict) -> str:
+    # nameCode is the 3-letter code (POR, BEN); shortName is a full name
+    return team.get("nameCode") or (team.get("name") or "")[:3].upper()
+
+
+def _colors(team: dict) -> list[str]:
+    c = team.get("teamColors") or {}
+    return [c.get("primary", "#000000"), c.get("secondary", "#FFFFFF")]
+
+
+def _live_clock(event: dict, status_code: int) -> str:
+    """Match minute for football, e.g. "34'" or "45+2'".
+
+    SofaScore gives the start of the current period and its offset ("initial",
+    in seconds) instead of a running clock, so the minute is computed.
+    """
+    t = event.get("time") or {}
+    start = t.get("currentPeriodStartTimestamp")
+    if not start or status_code == 31:
+        return ""
+    initial = int(t.get("initial") or 0)
+    max_s = int(t.get("max") or 0)
+    now = datetime.now(timezone.utc).timestamp()
+    minute = int((now - start + initial) // 60) + 1
+    if minute < 1:
+        return ""
+    if max_s and minute > max_s // 60:
+        return f"{max_s // 60}+{minute - max_s // 60}'"
+    return f"{minute}'"
+
+
+def _score(score: dict):
+    value = score.get("current")
+    if value is None:
+        value = score.get("display")
+    return value if value is not None else 0
 
 
 async def async_process_sofascore_event(
@@ -125,12 +178,24 @@ async def async_process_sofascore_event(
         # Tournament/League info
         tournament = event.get("tournament", {})
 
-        values["league"] = tournament.get("name", "Unknown League")
-        values["league_logo"] = f"https://api.sofascore.com/api/v1/unique-tournament/{tournament.get('uniqueTournament', {}).get('id')}/image" if tournament.get("uniqueTournament") else DEFAULT_LOGO
-        values["event_name"] = event.get("name", "")
+        unique = tournament.get("uniqueTournament") or {}
 
-        # Sport info
-        sport_name = event.get("sport", {}).get("name", "football").lower()
+        values["league"] = unique.get("name") or tournament.get("name", "")
+        if unique.get("id"):
+            values["league_logo"] = f"{IMG_BASE}/unique-tournament/{unique['id']}/image"
+        elif tournament.get("id"):
+            values["league_logo"] = f"{IMG_BASE}/tournament/{tournament['id']}/image"
+        else:
+            values["league_logo"] = ""
+
+        # Sport lives under tournament.category; events have no top-level
+        # "sport" key, so reading it there always gave "football".
+        sport_name = (
+            (tournament.get("category") or {}).get("sport", {}).get("slug")
+            or (event.get("sport") or {}).get("slug")
+            or values.get("sport")
+            or "football"
+        )
         values["sport"] = sport_name
         values["sport_path"] = sport_name
 
@@ -150,45 +215,34 @@ async def async_process_sofascore_event(
         # Team info
         values["team_id"] = str(our_team.get("id", ""))
         values["team_name"] = our_team.get("name", "")
-        values["team_abbr"] = our_team.get("shortName", our_team.get("name", "")[:3].upper())
-        values["team_long_name"] = our_team.get("name", "")
-        values["team_logo"] = f"https://api.sofascore.com/api/v1/team/{our_team.get('id')}/image" if our_team.get("id") else DEFAULT_LOGO
+        values["team_abbr"] = _abbr(our_team)
+        values["team_long_name"] = our_team.get("fullName") or our_team.get("name", "")
+        values["team_logo"] = _team_logo(our_team)
+        values["team_url"] = _team_url(our_team, sport_name)
         values["team_homeaway"] = "home" if is_home else "away"
-
-        # Team colors
-        team_colors = our_team.get("teamColors", {})
-        values["team_colors"] = [
-            team_colors.get("primary", "#000000"),
-            team_colors.get("secondary", "#FFFFFF"),
-            team_colors.get("text", "#FFFFFF"),
-        ]
+        values["team_colors"] = _colors(our_team)
 
         # Opponent info
         values["opponent_id"] = str(opp_team.get("id", ""))
         values["opponent_name"] = opp_team.get("name", "")
-        values["opponent_abbr"] = opp_team.get("shortName", opp_team.get("name", "")[:3].upper())
-        values["opponent_long_name"] = opp_team.get("name", "")
-        values["opponent_logo"] = f"https://api.sofascore.com/api/v1/team/{opp_team.get('id')}/image" if opp_team.get("id") else DEFAULT_LOGO
+        values["opponent_abbr"] = _abbr(opp_team)
+        values["opponent_long_name"] = opp_team.get("fullName") or opp_team.get("name", "")
+        values["opponent_logo"] = _team_logo(opp_team)
+        values["opponent_url"] = _team_url(opp_team, sport_name)
         values["opponent_homeaway"] = "away" if is_home else "home"
+        values["opponent_colors"] = _colors(opp_team)
 
-        # Opponent colors
-        opp_colors = opp_team.get("teamColors", {})
-        values["opponent_colors"] = [
-            opp_colors.get("primary", "#000000"),
-            opp_colors.get("secondary", "#FFFFFF"),
-            opp_colors.get("text", "#FFFFFF"),
-        ]
+        values["event_name"] = event.get("name") or (
+            f"{home_team.get('name', '')} - {away_team.get('name', '')}"
+        )
 
         # Scores
         home_score = event.get("homeScore", {})
         away_score = event.get("awayScore", {})
 
-        if is_home:
-            values["team_score"] = home_score.get("current", 0) or home_score.get("display", 0) or 0
-            values["opponent_score"] = away_score.get("current", 0) or away_score.get("display", 0) or 0
-        else:
-            values["team_score"] = away_score.get("current", 0) or away_score.get("display", 0) or 0
-            values["opponent_score"] = home_score.get("current", 0) or home_score.get("display", 0) or 0
+        our_score, opp_score = (home_score, away_score) if is_home else (away_score, home_score)
+        values["team_score"] = _score(our_score)
+        values["opponent_score"] = _score(opp_score)
 
         # Event date/time
         start_timestamp = event.get("startTimestamp")
@@ -221,10 +275,10 @@ async def async_process_sofascore_event(
             values["kickoff_in"] = ""
 
         # Venue
-        venue = event.get("venue", {})
-        values["venue"] = venue.get("stadium", {}).get("name", "")
-        venue_city = venue.get("city", {}).get("name", "")
-        venue_country = venue.get("country", {}).get("name", "")
+        venue = event.get("venue") or {}
+        values["venue"] = venue.get("name") or (venue.get("stadium") or {}).get("name", "")
+        venue_city = (venue.get("city") or {}).get("name", "")
+        venue_country = (venue.get("country") or {}).get("name", "")
         if venue_city and venue_country:
             values["location"] = f"{venue_city}, {venue_country}"
         elif venue_city:
@@ -233,35 +287,23 @@ async def async_process_sofascore_event(
             values["location"] = venue_country or ""
 
         # Round info
-        round_info = event.get("roundInfo", {})
-        values["quarter"] = round_info.get("round", "") or get_period_name(status_code, status_type)
+        # quarter = current period. roundInfo.round is the matchday number
+        # (7, 8...), which is not a period and showed up as "7" here.
+        values["quarter"] = status.get("description") or get_period_name(status_code, status_type)
 
-        # Time/Clock
-        values["clock"] = status.get("description", "") or ""
+        # Clock: running minute while live, otherwise the status text
+        values["clock"] = ""
+        if values["state"] == "IN" and sport_name == "football":
+            values["clock"] = _live_clock(event, status_code)
+        if not values["clock"]:
+            values["clock"] = status.get("description", "") or ""
 
         # Additional details for IN/POST states
         if values["state"] == "IN":
             values["private_fast_refresh"] = True
-
-            # Win probability (if available)
-            win_prob = event.get("winnerCode")
-            if win_prob == 1:  # Home winning
-                if is_home:
-                    values["team_win_probability"] = 75.0
-                    values["opponent_win_probability"] = 25.0
-                else:
-                    values["team_win_probability"] = 25.0
-                    values["opponent_win_probability"] = 75.0
-            elif win_prob == 2:  # Away winning
-                if is_home:
-                    values["team_win_probability"] = 25.0
-                    values["opponent_win_probability"] = 75.0
-                else:
-                    values["team_win_probability"] = 75.0
-                    values["opponent_win_probability"] = 25.0
-            else:
-                values["team_win_probability"] = 50.0
-                values["opponent_win_probability"] = 50.0
+            # No win probability: SofaScore's event has none, and winnerCode
+            # is only set once the match is over. The old 75/25 and 50/50
+            # values were made up.
 
         elif values["state"] == "POST":
             # Determine winner
@@ -294,11 +336,10 @@ async def async_process_sofascore_event(
                     values["private_fast_refresh"] = True
 
         # Event URL
-        if event.get("slug"):
-            home_slug = event.get("homeTeam", {}).get("slug", "")
-            away_slug = event.get("awayTeam", {}).get("slug", "")
-            custom_id = event.get("customId", "")
-            values["event_url"] = f"https://www.sofascore.com/{home_slug}-{away_slug}/{custom_id}"
+        if event.get("slug") and event.get("customId"):
+            values["event_url"] = (
+                f"https://www.sofascore.com/{event['slug']}/{event['customId']}#id:{event_id}"
+            )
         else:
             values["event_url"] = ""
 
@@ -311,19 +352,19 @@ async def async_process_sofascore_event(
         # Records - not in basic event data
         values["team_record"] = ""
         values["opponent_record"] = ""
-        values["team_rank"] = 0
-        values["opponent_rank"] = 0
+        values["team_rank"] = None
+        values["opponent_rank"] = None
 
         # Odds - would need separate API call
         values["odds"] = ""
         values["overunder"] = ""
 
         # Possession, last play, etc. - need statistics API call
-        values["possession"] = ""
+        values["possession"] = None
         values["last_play"] = ""
         values["down_distance_text"] = ""
-        values["team_timeouts"] = 0
-        values["opponent_timeouts"] = 0
+        values["team_timeouts"] = None
+        values["opponent_timeouts"] = None
 
         # Success message
         values["api_message"] = f"Event data retrieved successfully (Event ID: {event_id})"
@@ -394,8 +435,10 @@ async def async_get_sofascore_statistics(
         for group in period_stats.get("groups", []):
             for item in group.get("statisticsItems", []):
                 stat_name = item.get("name", "")
-                home_stats[stat_name] = item.get("home", "")
-                away_stats[stat_name] = item.get("away", "")
+                # homeValue/awayValue are numbers; home/away are display
+                # strings ("5", "54%")
+                home_stats[stat_name] = item.get("homeValue", item.get("home", ""))
+                away_stats[stat_name] = item.get("awayValue", item.get("away", ""))
 
         # Determine if we're home or away
         is_home = values.get("team_homeaway") == "home"
@@ -412,8 +455,10 @@ async def async_get_sofascore_statistics(
 
             # Ball possession already includes the percent sign ("64%")
             possession = our_stats.get("Ball possession")
-            if possession:
+            if possession not in (None, ""):
                 possession = str(possession).strip()
+                if possession.endswith(".0"):
+                    possession = possession[:-2]
                 values["possession"] = (
                     possession if possession.endswith("%") else f"{possession}%"
                 )
