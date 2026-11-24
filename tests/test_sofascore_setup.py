@@ -459,3 +459,24 @@ async def test_reload_keeps_the_tracked_team_on_its_own_side(hass, socket_enable
     assert after["team_name"] == "FC Porto"
     assert after["opponent_name"] == "Benfica"
     assert after["team_homeaway"] == "home"
+
+
+async def test_setup_fetches_the_event_once(hass, socket_enabled):
+    """Adding the entity must not trigger a second refresh right after setup."""
+    patches = _patch_api(next_event=FIX["pre_event"], event=FIX["pre_event"])
+    mocks = [p.start() for p in patches]
+    try:
+        entry = MockConfigEntry(
+            domain=DOMAIN, title="sports_radar", data=CONFIG_SOFASCORE
+        )
+        entry.add_to_hass(hass)
+        get_event = mocks[4]
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        calls = get_event.call_count
+    finally:
+        for p in patches:
+            p.stop()
+
+    # One refresh: resolving the fixture upgrades it with a single /event call.
+    assert calls == 1

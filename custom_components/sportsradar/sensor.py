@@ -125,7 +125,8 @@ async def async_setup_platform(
     hass.data[DOMAIN][sensor_name] = {
         COORDINATOR: coordinator,
     }
-    async_add_entities([SportsRadarScoresSensor(hass, None, config)], True)
+    # The coordinator has just refreshed; no need to update again on add.
+    async_add_entities([SportsRadarScoresSensor(hass, None, config)])
 
 
 async def async_setup_entry(
@@ -142,12 +143,8 @@ async def async_setup_entry(
         ISSUE_URL,
     )
 
-    config = hass.data[DOMAIN][entry.entry_id]
-    # Update our config to include new repos and remove those that have been removed.
-    if entry.options:
-        config.update(entry.options)
-
-    async_add_entities([SportsRadarScoresSensor(hass, entry, None)], True)
+    # The coordinator was refreshed in __init__.async_setup_entry.
+    async_add_entities([SportsRadarScoresSensor(hass, entry, None)])
 
 
 class SportsRadarScoresSensor(CoordinatorEntity):
