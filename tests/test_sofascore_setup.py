@@ -427,3 +427,35 @@ async def test_match_details_failure_does_not_break_update(hass, socket_enabled)
     state = hass.states.get("sensor.test_sofascore_porto")
     assert state.state == "IN"
     assert state.attributes["team_kit_colors"] is None
+
+
+async def test_reload_keeps_the_tracked_team_on_its_own_side(hass, socket_enabled):
+    """A reload must not swap team and opponent.
+
+    The coordinator used to keep a class-level cache of the last payload and
+    serve it to a new instance for 10 minutes, before that instance had
+    resolved its own team id, so "our" side was picked against None.
+    """
+    patches = _patch_api(next_event=FIX["pre_event"], event=FIX["pre_event"])
+    for p in patches:
+        p.start()
+    try:
+        entry = MockConfigEntry(
+            domain=DOMAIN, title="sports_radar", data=CONFIG_SOFASCORE
+        )
+        entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        before = hass.states.get("sensor.test_sofascore_porto").attributes
+
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+        after = hass.states.get("sensor.test_sofascore_porto").attributes
+    finally:
+        for p in patches:
+            p.stop()
+
+    assert before["team_name"] == "FC Porto"
+    assert after["team_name"] == "FC Porto"
+    assert after["opponent_name"] == "Benfica"
+    assert after["team_homeaway"] == "home"

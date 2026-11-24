@@ -49,24 +49,15 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 @pytest.fixture(autouse=True)
 def clear_coordinator_caches():
-    """Reset the coordinator's class-level caches between tests.
+    """Reset the coordinator's class-level team id cache between tests.
 
-    data_cache/last_update/team_cache are shared by every coordinator instance
-    and keyed on team+sport. That is deliberate at runtime - several sensors
-    tracking one team share a single fetch - but between tests it lets one
-    test's fixture data satisfy the next one's refresh.
+    team_cache is shared by every coordinator instance and keyed on
+    team+sport, so one test's lookup would otherwise leak into the next.
     """
     from custom_components.sportsradar import (  # pylint: disable=import-outside-toplevel
         SportsRadarDataUpdateCoordinator,
     )
 
-    caches = (
-        SportsRadarDataUpdateCoordinator.data_cache,
-        SportsRadarDataUpdateCoordinator.last_update,
-        SportsRadarDataUpdateCoordinator.team_cache,
-    )
-    for cache in caches:
-        cache.clear()
+    SportsRadarDataUpdateCoordinator.team_cache.clear()
     yield
-    for cache in caches:
-        cache.clear()
+    SportsRadarDataUpdateCoordinator.team_cache.clear()

@@ -231,10 +231,9 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching SportsRadar data."""
 
-    data_cache = {}
-    last_update = {}
-    c_cache = {}
-    team_cache = {}  # Cache for team_name -> team_id mapping
+    # "team name:sport" -> SofaScore team id. Shared on purpose: the id of a
+    # team never changes, so every coordinator can reuse a lookup.
+    team_cache = {}
 
     def __init__(self, hass, config, entry: ConfigEntry=None):
         """Initialize."""
@@ -300,11 +299,6 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         # league_path is ignored in SofaScore mode
         self.team_id = team_id  # This is the team name in SofaScore mode
 
-        # Clear cache for this team
-        key = f"{team_id}:{sport_path}"
-        if key in SportsRadarDataUpdateCoordinator.data_cache:
-            del SportsRadarDataUpdateCoordinator.data_cache[key]
-
         # Clear team ID cache to force re-search
         team_cache_key = f"{team_id}:{sport_path}"
         if team_cache_key in SportsRadarDataUpdateCoordinator.team_cache:
@@ -350,44 +344,10 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
             return data
 
     async def async_update_game_data(self, config, hass) -> dict:
-        """Update game data from data_cache or the API (if expired)"""
-
-        sport_path = self.sport_path
-        team_name = self.team_id
-
+        """Fetch the tracked fixture from SofaScore and build the values."""
         lang = self.get_lang()
-
-        # Cache key is now based on team and sport
-        key = f"{team_name}:{sport_path}"
-
-        #
-        #  Use cache if not expired
-        #
-        if key in self.data_cache:
-            expiration = (
-                datetime.fromisoformat(self.last_update[key]) + self.update_interval
-            )
-            now = datetime.now(timezone.utc)
-
-            if now < expiration:
-                data = self.data_cache[key]
-                values = await self.async_update_values(config, hass, data, lang)
-                if values.get("api_message"):
-                    values["api_message"] = "Cached data: " + values["api_message"]
-                else:
-                    values["api_message"] = "Cached data"
-                return values
-
-        #
-        #  Call the SofaScore API
-        #
-
         data, _ = await self.async_call_api(config, hass, lang)
-        values = await self.async_update_values(config, hass, data, lang)
-        self.data_cache[key] = data
-        self.last_update[key] = values["last_update"]
-
-        return values
+        return await self.async_update_values(config, hass, data, lang)
 
     #
     #  Call the SofaScore API to get team's next event
