@@ -119,8 +119,10 @@ async def test_options_flow_init(
 
     assert "create_entry" == result["type"]
     assert "" == result["title"]
-    assert result["result"] is True
+    # Newer Home Assistant no longer returns result["result"] for options
+    # flows, so check the stored options instead.
     assert {CONF_API_LANGUAGE: "en"} == result["data"]
+    assert {CONF_API_LANGUAGE: "en"} == entry.options
 
     # Unload
 

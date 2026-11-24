@@ -4,3 +4,13 @@
 .vscode/*
 .venv/
 __pycache__/
+.pytest_cache/
+coverage.xml
+htmlcov/
+.claude/
+.idea/
+.vscode/
+venv/
+*.egg-info/
+.DS_Store
+Thumbs.db

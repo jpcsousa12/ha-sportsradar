@@ -33,8 +33,10 @@ if sys.platform == "win32":
 # Swap in the threaded resolver for tests. It only changes how names are
 # resolved, and these tests patch the SofaScore client, so nothing is
 # resolved at all.
+# pylint: disable=wrong-import-position
 import aiohttp.resolver  # noqa: E402
 import homeassistant.helpers.aiohttp_client as _ha_aiohttp_client  # noqa: E402
+# pylint: enable=wrong-import-position
 
 _ha_aiohttp_client.AsyncResolver = aiohttp.resolver.ThreadedResolver
 
@@ -54,7 +56,9 @@ def clear_coordinator_caches():
     tracking one team share a single fetch - but between tests it lets one
     test's fixture data satisfy the next one's refresh.
     """
-    from custom_components.sportsradar import SportsRadarDataUpdateCoordinator
+    from custom_components.sportsradar import (  # pylint: disable=import-outside-toplevel
+        SportsRadarDataUpdateCoordinator,
+    )
 
     caches = (
         SportsRadarDataUpdateCoordinator.data_cache,

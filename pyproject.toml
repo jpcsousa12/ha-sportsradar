@@ -1,60 +1,17 @@
-[tool.black]
-target-version = ["py310", "py311"]
-extend-exclude = "/generated/"
-
-[tool.isort]
-# https://github.com/PyCQA/isort/wiki/isort-Settings
-profile = "black"
-# will group `import x` and `from x import` of the same module.
-force_sort_within_sections = true
-known_first_party = [
-    "homeassistant",
-    "tests",
-]
-forced_separate = [
-    "tests",
-]
-combine_as_imports = true
-
 [tool.pylint.MAIN]
-py-version = "3.11"
-ignore = [
-    "tests",
-]
-# `ignore` only matches during directory expansion; CI runs
-# `pylint $(git ls-files '*.py')`, which names every file explicitly.
-# ignore-paths is applied to explicit arguments too.
-ignore-paths = [
-    "^tests/.*$",
-]
+py-version = "3.12"
 # Use a conservative default here; 2 should speed up most setups and not hurt
 # any too bad. Override on command line as appropriate.
 jobs = 2
-init-hook = """\
-    from pathlib import Path; \
-    import sys; \
-
-    from pylint.config import find_default_config_files; \
-
-    sys.path.append( \
-        str(Path(next(find_default_config_files())).parent.joinpath('pylint/plugins'))
-    ) \
-    """
 load-plugins = [
     "pylint.extensions.code_style",
     "pylint.extensions.typing",
-#    "hass_constructor",
-#    "hass_enforce_type_hints",
-#    "hass_imports",
-#    "hass_logger",
 ]
 persistent = false
-extension-pkg-allow-list = [
-    "av.audio.stream",
-    "av.stream",
-    "ciso8601",
-    "orjson",
-    "cv2",
+# tests/sofascore holds standalone console scripts that import the component
+# modules through a sys.path insert, which pylint cannot follow.
+ignore-paths = [
+    "^tests/sofascore/.*$",
 ]
 fail-on = [
     "I",
@@ -81,7 +38,7 @@ good-names-rgxs = [
 
 [tool.pylint."MESSAGES CONTROL"]
 # Reasons disabled:
-# format - handled by black
+# format - left to a code formatter
 # locally-disabled - it spams too much
 # duplicate-code - unavoidable
 # cyclic-import - doesn't test if both import on load
@@ -92,7 +49,7 @@ good-names-rgxs = [
 # abstract-method - with intro of async there are always methods missing
 # inconsistent-return-statements - doesn't handle raise
 # too-many-ancestors - it's too strict.
-# wrong-import-order - isort guards this
+# wrong-import-order - left to an import sorter
 # consider-using-f-string - str.format sometimes more readable
 # ---
 # Enable once current issues are fixed:

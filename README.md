@@ -115,7 +115,7 @@ baseball and American football fields) stay empty.
 Point a sensor at another team without reconfiguring it:
 
 ```yaml
-service: sportsradar.call_api
+action: sportsradar.call_api
 target:
   entity_id: sensor.sports_radar
 data:
@@ -134,16 +134,16 @@ to the log.
 ```yaml
 automation:
   - alias: "Goal for my team"
-    trigger:
-      - platform: state
+    triggers:
+      - trigger: state
         entity_id: sensor.sports_radar
         attribute: team_score
-    condition:
+    conditions:
       - condition: state
         entity_id: sensor.sports_radar
         state: "IN"
-    action:
-      - service: notify.mobile_app
+    actions:
+      - action: notify.mobile_app
         data:
           message: >-
             GOAL! {{ state_attr('sensor.sports_radar', 'team_name') }}
@@ -195,14 +195,14 @@ the check on the Home Assistant host, not only on your laptop.
 ## Development
 
 ```bash
-pip install -r requirements_test.txt
-python -m pytest --asyncio-mode=auto   # Home Assistant tests
-python tests/sofascore/test_logic.py    # offline SofaScore checks
-pylint $(git ls-files '*.py')
+pip install -r requirements_test.txt pylint pillow
+python -m pytest                       # Home Assistant tests
+python tests/sofascore/test_logic.py   # offline SofaScore checks
+pylint custom_components/sportsradar tests scripts
 ```
 
-CI runs pytest (Python 3.11 and 3.12), pylint, hassfest and the HACS action on
-every push.
+CI runs pytest with coverage (Python 3.12 and 3.13), pylint (Python 3.13),
+hassfest and the HACS action on every push.
 
 ## Credits
 

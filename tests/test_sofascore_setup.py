@@ -18,6 +18,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sportsradar.const import DOMAIN
+from custom_components.sportsradar.sofascore_api import SofaScoreApiError
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "sofascore", "fixtures.json")
@@ -142,8 +143,6 @@ async def test_live_match_reports_in(hass, socket_enabled):
 
 async def test_api_failure_does_not_report_a_phantom_game(hass, socket_enabled):
     """When SofaScore is unreachable the sensor must not claim 'no game'."""
-    from custom_components.sportsradar.sofascore_api import SofaScoreApiError
-
     with patch(
         "custom_components.sportsradar.SofaScoreAPI.find_team_by_name",
         side_effect=SofaScoreApiError("403 Forbidden"),
@@ -273,8 +272,6 @@ async def test_blocked_live_feed_does_not_fail_the_update(hass, socket_enabled):
     Some hosts are refused on the broad feeds while the team endpoints answer
     normally; the update has to survive on those.
     """
-    from custom_components.sportsradar.sofascore_api import SofaScoreApiError
-
     patches = [
         patch(
             "custom_components.sportsradar.SofaScoreAPI.find_team_by_name",

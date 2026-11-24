@@ -1,4 +1,6 @@
 """Constants for tests."""
+from unittest.mock import patch
+
 
 class PlatformConfigType(dict):
     """Wrapper class to be able to add attributes on a dict."""
@@ -71,8 +73,6 @@ def patch_sofascore(team=None, live=None, next_event=None, event=None, stats=Non
     that merely sets up a config entry will really call the API, which is slow,
     flaky, and leaves lingering tasks that fail HA's teardown checks.
     """
-    from unittest.mock import patch
-
     targets = {
         "find_team_by_name": team,
         "get_team_live_event": live,
