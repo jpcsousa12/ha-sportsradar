@@ -12,6 +12,7 @@ import asyncio
 import json
 import os
 import sys
+import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 COMPONENT = os.path.normpath(
@@ -482,6 +483,50 @@ async def test_team_search_filters_on_the_sport_slug():
     )
 
 
+async def test_diagnose_builds_ssl_contexts_off_the_event_loop():
+    print("")
+    print("diagnose: SSL contexts are built in an executor")
+
+    loop_thread = threading.get_ident()
+    built_on = []
+    original_build = sofascore_api._build_ssl_context
+
+    def recording_build(*args, **kwargs):
+        built_on.append(threading.get_ident())
+        return original_build(*args, **kwargs)
+
+    class NoNetworkSession:
+        def __init__(self, connector=None):
+            self.connector = connector
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        def get(self, url, **kwargs):
+            raise RuntimeError("no network in tests")
+
+    aiohttp = sofascore_api.aiohttp
+    saved = (aiohttp.ClientSession, aiohttp.TCPConnector)
+    sofascore_api._build_ssl_context = recording_build
+    aiohttp.ClientSession = NoNetworkSession
+    aiohttp.TCPConnector = lambda ssl=None: ssl
+    try:
+        results = await sofascore_api.async_diagnose_403()
+    finally:
+        sofascore_api._build_ssl_context = original_build
+        aiohttp.ClientSession, aiohttp.TCPConnector = saved
+
+    check("every configuration is reported", len(results) == 6, "(got %s)" % results)
+    check(
+        "no context was built on the event loop thread",
+        built_on and loop_thread not in built_on,
+        "(built on %s, loop %s)" % (built_on, loop_thread),
+    )
+
+
 async def main():
     tests = (
         test_status_mapping,
@@ -496,6 +541,7 @@ async def main():
         test_falls_back_to_the_other_host_on_403,
         test_all_hosts_refused_raises,
         test_team_search_filters_on_the_sport_slug,
+        test_diagnose_builds_ssl_contexts_off_the_event_loop,
     )
     for test in tests:
         try:

@@ -546,6 +546,15 @@ def _build_ssl_context(ciphers=None, max_version=None):
         return None
 
 
+def _build_diagnostic_attempts() -> list:
+    """The (label, ssl_context) pairs to try. Blocking: reads CA files."""
+    return [
+        ("default TLS", None),
+        ("browser cipher order", _build_ssl_context(ciphers=BROWSER_CIPHERS)),
+        ("TLS 1.2 max", _build_ssl_context(max_version=ssl.TLSVersion.TLSv1_2)),
+    ]
+
+
 async def async_diagnose_403(probe_path: str = "/team/3002/events/last/0") -> list:
     """Try several client configurations and report which SofaScore allows.
 
@@ -556,11 +565,10 @@ async def async_diagnose_403(probe_path: str = "/team/3002/events/last/0") -> li
 
     Returns a list of (label, status_or_error) tuples.
     """
-    attempts = [
-        ("default TLS", None),
-        ("browser cipher order", _build_ssl_context(ciphers=BROWSER_CIPHERS)),
-        ("TLS 1.2 max", _build_ssl_context(max_version=ssl.TLSVersion.TLSv1_2)),
-    ]
+    # Building a context loads the CA bundle from disk: keep it off the loop.
+    attempts = await asyncio.get_running_loop().run_in_executor(
+        None, _build_diagnostic_attempts
+    )
 
     results = []
     for host in ALTERNATE_HOSTS:
