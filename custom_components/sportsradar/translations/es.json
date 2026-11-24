@@ -1,25 +1,12 @@
 {
   "config": {
-    "error": {
-      "league": "Se ha introducido una liga no válida."
-    },
     "step": {
       "user": {
-        "description": "Introduce la Liga y el Equipo para crear el sensor.\n\nLiga: NFL, NCAAF, MLB, NBA, WNBA, NCAAM, NCAAW, NCAAVB, NCAAVBW, MLS, NWSL, BUND, CL, CLA, EPL, LIGA, LIG1, SERA, WC, PGA, ATP, WTA, F1, IRL, XFL\n\nTeam: 2-4 letter team abreviation used on ESPN's scoreboards and stats pages\n\nConference Number: For NCAA football and basketball only.  See README.md for valid values.  Leave blank to only include games with ranked teams.",
+        "description": "Elige el equipo que quieres seguir y su deporte.\n\nEquipo: el nombre del equipo o del atleta tal como lo escribe SofaScore (por ejemplo, FC Porto), o su identificador numérico de SofaScore, el número al final de la dirección de su página en sofascore.com. El identificador es la opción más fiable.",
         "data": {
-          "league_id": "Liga",
-          "team_id": "Equipo/Atleta",  
-          "name": "Nombre descriptivo",
-          "timeout": "Tiempo de espera de actualización (en segundos)",
-          "conference_id": "Número de conferencia"
-        }
-      },
-      "path": {
-        "title": "Configurador personalizado de API",
-        "description": "Introduzca la parte 'deporte' y 'liga' de la ruta de la API de ESPN para utilizar una API autoconfigurada",
-        "data": {
-          "sport_path": "Ruta deporte", 
-          "league_path": "Ruta liga"
+          "team_id": "Equipo/Atleta (nombre o id numérico de SofaScore)",
+          "sport_path": "Deporte",
+          "name": "Nombre descriptivo"
         }
       }
     }

@@ -18,7 +18,6 @@ def expected_lingering_timers() -> bool:
     return False
 
 
-#@pytest.mark.parametrize("expected_lingering_timers", [True])
 async def test_sensor(hass, mocker):
     """ test sensor """
 
@@ -40,9 +39,6 @@ async def test_sensor(hass, mocker):
             patcher.stop()
 
     assert "sportsradar" in hass.config.components
-
-#    assert await entry.async_unload(hass)
-#    await hass.async_block_till_done()
 
 
 async def test_setup_platform(hass):

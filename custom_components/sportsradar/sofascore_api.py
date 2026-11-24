@@ -1,9 +1,11 @@
-"""SofaScore API Client for SportsRadar"""
+"""Client for SofaScore's unofficial API."""
+
+import asyncio
 import logging
 import ssl
 from typing import Any
+
 import aiohttp
-import asyncio
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -74,6 +76,7 @@ class SofaScoreApiError(Exception):
     because "this team has no upcoming match" is a normal answer.
     """
 
+
 # SofaScore API Base URLs. The two hosts serve identical data, and they are
 # not blocked in lockstep - when one refuses a client the other has kept
 # working. Requests fall back to the next one on 403 and remember whichever
@@ -82,12 +85,10 @@ SOFASCORE_API_BASES = (
     "https://api.sofascore.com/api/v1",
     "https://api.sofascore.app/api/v1",
 )
-# Kept for callers that reference it (logging, diagnostics).
-SOFASCORE_API_BASE = SOFASCORE_API_BASES[0]
 
 _ACTIVE_BASE_INDEX = 0
 
-# Headers to mimic a normal browser request and avoid 403 errors
+# Request headers. Browser-style Origin/Referer, but an honest User-Agent.
 SOFASCORE_HEADERS = {
     # Identify honestly. A spoofed Chrome User-Agent used to be needed to get
     # past SofaScore's edge; it is now the thing that gets refused - every
@@ -107,23 +108,6 @@ SOFASCORE_HEADERS = {
     "Sec-Fetch-Site": "same-site",
 }
 
-# Sport mapping - SofaScore sport IDs
-SPORT_MAP = {
-    "football": 1,  # Soccer
-    "basketball": 2,
-    "tennis": 5,
-    "cricket": 3,
-    "hockey": 4,  # Ice hockey
-    "american-football": 12,
-    "baseball": 9,
-    "volleyball": 23,
-    "handball": 6,
-    "rugby": 12,
-    "mma": 20,
-    "motorsport": 19,
-}
-
-
 # Sport values that differ from SofaScore's own slug. "hockey" is what the
 # config flow has always stored for ice hockey, so it has to keep working.
 SPORT_SLUG_ALIASES = {
@@ -138,10 +122,10 @@ def sofascore_sport_slug(sport: str | None) -> str:
 
 
 class SofaScoreAPI:
-    """Class to interact with SofaScore unofficial API"""
+    """Async client for the SofaScore endpoints the integration reads."""
 
     def __init__(self, timeout: int = 30, session: aiohttp.ClientSession | None = None):
-        """Initialize the SofaScore API client
+        """Initialize the SofaScore API client.
 
         Args:
             timeout: Request timeout in seconds
@@ -176,7 +160,7 @@ class SofaScoreAPI:
         self.session = None
 
     async def _make_request(self, endpoint: str, params: dict | None = None) -> dict | None:
-        """Make a request to SofaScore API
+        """Make a request to the SofaScore API.
 
         Tries each API host in turn. A 403 means this client is refused by
         that host's edge, and the hosts are not blocked in lockstep, so the
@@ -280,7 +264,7 @@ class SofaScoreAPI:
         )
 
     async def search_teams(self, query: str) -> list[dict[str, Any]]:
-        """Search for teams by name
+        """Search for teams by name.
 
         Args:
             query: Team name to search for
@@ -316,14 +300,20 @@ class SofaScoreAPI:
                         "primary": entity.get("teamColors", {}).get("primary", "#000000"),
                         "secondary": entity.get("teamColors", {}).get("secondary", "#FFFFFF"),
                     },
-                    "logo": f"https://api.sofascore.com/api/v1/team/{entity.get('id')}/image" if entity.get('id') else None,
+                    # Same image host as the sensor's logos: the api.* hosts
+                    # refuse most browsers.
+                    "logo": (
+                        f"https://img.sofascore.com/api/v1/team/{entity['id']}/image"
+                        if entity.get("id")
+                        else None
+                    ),
                 })
 
         _LOGGER.debug("Found %d teams for query '%s'", len(teams), query)
         return teams
 
     async def get_team_next_event(self, team_id: int, page: int = 0) -> dict | None:
-        """Get next upcoming event for a team
+        """Get the next upcoming event for a team.
 
         Args:
             team_id: SofaScore team ID
@@ -348,7 +338,7 @@ class SofaScoreAPI:
         return None
 
     async def get_team_last_event(self, team_id: int, page: int = 0) -> dict | None:
-        """Get last completed event for a team
+        """Get the most recent event for a team (possibly still in progress).
 
         Args:
             team_id: SofaScore team ID
@@ -374,21 +364,8 @@ class SofaScoreAPI:
 
         return None
 
-    async def get_event_details(self, event_id: int) -> dict | None:
-        """Get detailed information about a specific event
-
-        Args:
-            event_id: SofaScore event ID
-
-        Returns:
-            Detailed event data or None if not found
-        """
-        endpoint = f"/event/{event_id}"
-
-        return await self._make_request(endpoint)
-
     async def get_event_statistics(self, event_id: int) -> dict | None:
-        """Get statistics for a specific event
+        """Get statistics for a specific event.
 
         Args:
             event_id: SofaScore event ID
@@ -401,7 +378,7 @@ class SofaScoreAPI:
         return await self._make_request(endpoint)
 
     async def get_event_lineups(self, event_id: int) -> dict | None:
-        """Get lineups for a specific event
+        """Get line-ups for a specific event.
 
         Args:
             event_id: SofaScore event ID
@@ -418,7 +395,7 @@ class SofaScoreAPI:
         return await self._make_request(f"/event/{event_id}/incidents")
 
     async def get_team_info(self, team_id: int) -> dict | None:
-        """Get team information
+        """Get team information.
 
         Args:
             team_id: SofaScore team ID
@@ -431,11 +408,11 @@ class SofaScoreAPI:
         return await self._make_request(endpoint)
 
     async def find_team_by_name(self, team_name: str, sport: str = "football") -> dict | None:
-        """Find a specific team by name and sport
+        """Find a specific team by name and sport.
 
         Args:
             team_name: Team name to search for
-            sport: Sport name (default: football)
+            sport: Configured sport value or SofaScore slug (default: football)
 
         Returns:
             Team dictionary if found, None otherwise
@@ -487,7 +464,7 @@ class SofaScoreAPI:
 
         Args:
             team_id: SofaScore team ID
-            sport: Sport slug (default: football)
+            sport: Configured sport value or SofaScore slug (default: football)
 
         Returns:
             Live event data dictionary or None if the team is not playing now

@@ -1,4 +1,5 @@
-""" Home Assistant sensor processing """
+"""Sensor platform for Sports Radar."""
+
 import logging
 from typing import Any
 
@@ -29,7 +30,6 @@ from .const import (
     DEFAULT_ICON,
     DEFAULT_LEAGUE,
     DEFAULT_NAME,
-    DEFAULT_SPORT_PATH,
     DOMAIN,
     ISSUE_URL,
     LEAGUE_MAP,
@@ -59,12 +59,12 @@ async def async_setup_platform(
     async_add_entities: AddEntitiesCallback,
     discovery_info=None,
 ) -> None:
-    """Set up the sensor from the YAML Configuration"""
+    """Set up the sensor from the YAML configuration."""
     sensor_name = config[CONF_NAME]
 
     _LOGGER.info(
         "%s: Setting up sensor from YAML using SportsRadar %s, if you have any issues please report them here: %s",
-        sensor_name, 
+        sensor_name,
         VERSION,
         ISSUE_URL,
     )
@@ -132,13 +132,13 @@ async def async_setup_platform(
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Setup sensors from a config entry created in the integrations UI."""
+    """Set up the sensor from a config entry created in the UI."""
 
     sensor_name = entry.data[CONF_NAME]
 
     _LOGGER.info(
         "%s: Updating sensor from UI using SportsRadar %s, if you have any issues please report them here: %s",
-        sensor_name, 
+        sensor_name,
         VERSION,
         ISSUE_URL,
     )
@@ -148,7 +148,7 @@ async def async_setup_entry(
 
 
 class SportsRadarScoresSensor(CoordinatorEntity):
-    """Representation of a Sensor."""
+    """A team's next, live or most recent match."""
 
     # These change on every update (every 5 s during a match). Leaving them
     # out of the recorder lets consecutive states share one stored copy of
@@ -157,121 +157,27 @@ class SportsRadarScoresSensor(CoordinatorEntity):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, config: ConfigType) -> None:
         """Initialize the sensor."""
-
         if entry is not None:  # GUI setup, use entry_id as index
             entry_id = entry.entry_id
             sensor_coordinator = hass.data[DOMAIN][entry_id][COORDINATOR]
-            super().__init__(sensor_coordinator)
-            sport_path = entry.data.get(CONF_SPORT_PATH, DEFAULT_SPORT_PATH)
             sensor_name = entry.data[CONF_NAME]
-            
         else:  # YAML setup, use sensor_name as index (assumes sensor_name = entity_id)
             sensor_name = config[CONF_NAME]
             entry_id = slugify(f"{config.get(CONF_TEAM_ID)}")
             sensor_coordinator = hass.data[DOMAIN][sensor_name][COORDINATOR]
-            super().__init__(sensor_coordinator)
-            try:
-                sport_path = config[CONF_SPORT_PATH]
-            except:
-                sport_path = DEFAULT_SPORT_PATH
 
-        if sport_path == DEFAULT_SPORT_PATH:
-            _LOGGER.debug(
-                "%s:  Initializing sensor values.  SPORT_PATH not set.",
-                sensor_name,
-            )
+        super().__init__(sensor_coordinator)
 
+        self._entry_id = entry_id
+        self._name = sensor_name
         # One icon for the integration rather than one per sport, so the
         # entities are recognisable as Sports Radar. SPORT_ICON_MAP in const.py
         # holds the per-sport icons if you prefer those.
-        icon = DEFAULT_ICON
-
-        self.coordinator = sensor_coordinator
-        self._entry_id = entry_id
-        self._name = sensor_name
-        self._icon = icon
-        self._state = "PRE"
-
-        self._sport = None
-        self._sport_path = None
-        self._league = None
-        self._league_path = None
-        self._league_logo = None
-        self._season = None
-        self._team_abbr = None
-        self._opponent_abbr = None
-
-        self._event_name = None
-        self._event_url = None
-        self._date = None
-        self._kickoff_in = None
-        self._series_summary = None
-        self._venue = None
-        self._location = None
-        self._tv_network = None
-        self._odds = None
-        self._overunder = None
-
-        self._team_name = None
-        self._team_long_name = None
-        self._team_id = None
-        self._team_record = None
-        self._team_rank = None
-        self._team_conference_id = None
-        self._team_homeaway = None
-        self._team_logo = None
-        self._team_url = None
-        self._team_colors = None
-        self._team_score = None
-        self._team_win_probability = None
-        self._team_winner = None
-        self._team_timeouts = None
-
-        self._opponent_name = None
-        self._opponent_long_name = None
-        self._opponent_id = None
-        self._opponent_record = None
-        self._opponent_rank = None
-        self._opponent_conference_id = None
-        self._opponent_homeaway = None
-        self._opponent_logo = None
-        self._opponent_url = None
-        self._opponent_colors = None
-        self._opponent_score = None
-        self._opponent_win_probability = None
-        self._opponent_winner = None
-        self._opponent_timeouts = None
-
-        self._quarter = None
-        self._clock = None
-        self._possession = None
-        self._last_play = None
-        self._down_distance_text = None
-
-        self._outs = None
-        self._balls = None
-        self._strikes = None
-        self._on_first = None
-        self._on_second = None
-        self._on_third = None
-
-        self._team_shots_on_target = None
-        self._team_total_shots = None
-        self._opponent_shots_on_target = None
-        self._opponent_total_shots = None
-
-        self._team_sets_won = None
-        self._opponent_sets_won = None
-
-        self._last_update = None
-        self._api_message = None
-        self._api_url = None
+        self._icon = DEFAULT_ICON
 
     @property
     def unique_id(self) -> str:
-        """
-        Return a unique, Home Assistant friendly identifier for this entity.
-        """
+        """Return a unique, Home Assistant friendly identifier for this entity."""
         return f"{slugify(self._name)}_{self._entry_id}"
 
     @property
@@ -297,7 +203,7 @@ class SportsRadarScoresSensor(CoordinatorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return the state message."""
+        """Return the match details as attributes."""
         attrs = {}
 
         if self.coordinator.data is None:
@@ -335,7 +241,6 @@ class SportsRadarScoresSensor(CoordinatorEntity):
         attrs["team_logo"] = self.coordinator.data["team_logo"]
         attrs["team_url"] = self.coordinator.data["team_url"]
         attrs["team_colors"] = self.coordinator.data["team_colors"]
-        #        attrs["team_colors_rbg"] = self.colors2rgb(self.coordinator.data["team_colors"])
         attrs["team_score"] = self.coordinator.data["team_score"]
         attrs["team_win_probability"] = self.coordinator.data["team_win_probability"]
         attrs["team_winner"] = self.coordinator.data["team_winner"]
@@ -351,7 +256,6 @@ class SportsRadarScoresSensor(CoordinatorEntity):
         attrs["opponent_logo"] = self.coordinator.data["opponent_logo"]
         attrs["opponent_url"] = self.coordinator.data["opponent_url"]
         attrs["opponent_colors"] = self.coordinator.data["opponent_colors"]
-        #        attrs["opponent_colors_rgb"] = self.colors2rgb(self.coordinator.data["opponent_colors"])
         attrs["opponent_score"] = self.coordinator.data["opponent_score"]
         attrs["opponent_win_probability"] = self.coordinator.data[
             "opponent_win_probability"

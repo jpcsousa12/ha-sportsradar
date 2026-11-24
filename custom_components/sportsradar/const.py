@@ -1,18 +1,8 @@
-""" Constants for sportsradar sensor"""
-from homeassistant.const import Platform
+"""Constants for the Sports Radar integration."""
+
 from datetime import timedelta
 
-# API - Legacy ESPN (kept for backwards compatibility)
-URL_HEAD = "http://site.api.espn.com/apis/site/v2/sports/"
-URL_TAIL = "/scoreboard"
-API_LIMIT = 50
-USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_6) AppleWebKit/605.1.15 (KHTML, like "
-    "Gecko) Version/15.0 Safari/605.1.15"
-)
-
-# SofaScore API
-SOFASCORE_API_BASE = "https://api.sofascore.com/api/v1"
+from homeassistant.const import Platform
 
 # Config
 CONF_API_LANGUAGE = "api_language"
@@ -37,7 +27,8 @@ SOCCER = "soccer"
 TENNIS = "tennis"
 VOLLEYBALL = "volleyball"
 
-# Maps
+# ESPN-era league ids and their sport/league paths. Still used to validate
+# the YAML sensor platform's league_id and to migrate version 1-2 entries.
 LEAGUE_MAP = {
     "AFL": {
         CONF_SPORT_PATH: AUSTRALIAN_FOOTBALL,
@@ -183,17 +174,11 @@ DEFAULT_CONFERENCE_ID = ""
 # SPORT_ICON_MAP above if you would rather show the sport: swap this
 # lookup back in sensor.py.
 DEFAULT_ICON = "mdi:radar"
-DEFAULT_LEAGUE = ""  # No default league in SofaScore mode
-DEFAULT_LOGO = (
-    "https://cdn0.iconfinder.com/data/icons/shift-interfaces/32/Error-512.png"
-)
+DEFAULT_LEAGUE = ""  # SofaScore finds the competition itself
 DEFAULT_NAME = "sports_radar"
-DEFAULT_PROB = 0.0
 DEFAULT_SPORT_PATH = "football"  # Default to football/soccer
 DEFAULT_TIMEOUT = 120  # seconds for a whole update
 REQUEST_TIMEOUT = 15  # seconds for one SofaScore request
-DEFAULT_LAST_UPDATE = "2022-02-02 02:02:02-05:00"
-DEFAULT_KICKOFF_IN = "{test} days"
 # How long after KICK-OFF a finished match stays on the sensor before it rolls
 # over to the next fixture. This is measured from the start of the match, so it
 # needs to cover the match itself plus the time the result stays on display.
@@ -215,7 +200,6 @@ SERVICE_NAME_CALL_API = "call_api"
 SERVICE_NAME_DIAGNOSE = "diagnose"
 
 # Misc
-TEAM_ID = ""
 VERSION = "v1.3.0"
 ISSUE_URL = "https://github.com/jpcsousa12/ha-sportsradar"
 DOMAIN = "sportsradar"

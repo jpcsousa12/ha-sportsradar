@@ -1,14 +1,15 @@
-"""Process SofaScore event data into SportsRadar format"""
+"""Turn SofaScore event payloads into Sports Radar sensor values."""
+
 import logging
 from datetime import datetime, timezone
 from typing import Any
 import arrow
 
-# Handle imports for both standalone testing and Home Assistant
+# Imported as a package inside Home Assistant, and as a plain module by the
+# standalone scripts in tests/sofascore.
 try:
     from .sofascore_api import SofaScoreAPI
 except ImportError:
-    # Running standalone for testing
     import sofascore_api
     SofaScoreAPI = sofascore_api.SofaScoreAPI
 
@@ -16,7 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def get_status_state(status_code: int, status_type: str) -> str:
-    """Convert SofaScore status to state
+    """Convert a SofaScore status to the sensor state.
 
     Args:
         status_code: SofaScore status code
@@ -43,9 +44,8 @@ def get_status_state(status_code: int, status_type: str) -> str:
     # Unknown type: fall back to the documented code ranges.
     if status_code == 0:
         return "PRE"
-    if status_code in (100, 110):
-        return "POST"
-    if status_code in (120, 130, 140):
+    if status_code in (60, 70, 100, 110, 120, 130, 140):
+        # postponed, canceled, ended, after extra time, after penalties...
         return "POST"
     if 0 < status_code < 100:
         return "IN"
@@ -53,16 +53,8 @@ def get_status_state(status_code: int, status_type: str) -> str:
     return "NOT_FOUND"
 
 
-def get_period_name(status_code: int, status_type: str) -> str:
-    """Get period/quarter name from status
-
-    Args:
-        status_code: SofaScore status code
-        status_type: SofaScore status type
-
-    Returns:
-        Period name string
-    """
+def get_period_name(status_code: int) -> str:
+    """Return a period name for a SofaScore status code."""
     period_map = {
         0: "Not started",
         6: "1st half",
@@ -87,21 +79,25 @@ IMG_BASE = "https://img.sofascore.com/api/v1"
 
 
 def _team_logo(team: dict) -> str:
+    """Logo URL for a team, or "" without an id."""
     return f"{IMG_BASE}/team/{team['id']}/image" if team.get("id") else ""
 
 
 def _team_url(team: dict, sport: str) -> str:
+    """Team page on sofascore.com, or "" without an id and slug."""
     if team.get("id") and team.get("slug"):
         return f"https://www.sofascore.com/team/{sport}/{team['slug']}/{team['id']}"
     return ""
 
 
 def _abbr(team: dict) -> str:
+    """Three-letter team code."""
     # nameCode is the 3-letter code (POR, BEN); shortName is a full name
     return team.get("nameCode") or (team.get("name") or "")[:3].upper()
 
 
 def _colors(team: dict) -> list[str]:
+    """Club colours as [primary, secondary]."""
     c = team.get("teamColors") or {}
     return [c.get("primary", "#000000"), c.get("secondary", "#FFFFFF")]
 
@@ -128,6 +124,7 @@ def _live_clock(event: dict, status_code: int) -> str:
 
 
 def _score(score: dict):
+    """Current score of one side, 0 when SofaScore has none yet."""
     value = score.get("current")
     if value is None:
         value = score.get("display")
@@ -141,7 +138,7 @@ async def async_process_sofascore_event(
     team_id: int,
     api_client: SofaScoreAPI,
 ) -> dict[str, Any]:
-    """Process a SofaScore event and populate values dict
+    """Process a SofaScore event and populate the values dict.
 
     Args:
         values: Dictionary to populate with event data
@@ -283,7 +280,7 @@ async def async_process_sofascore_event(
         # Round info
         # quarter = current period. roundInfo.round is the matchday number
         # (7, 8...), which is not a period and showed up as "7" here.
-        values["quarter"] = status.get("description") or get_period_name(status_code, status_type)
+        values["quarter"] = status.get("description") or get_period_name(status_code)
 
         # Clock: running minute while live, otherwise the status text
         values["clock"] = ""
@@ -431,6 +428,7 @@ def apply_statistics(
 
 
 def _apply_statistics(values: dict[str, Any], stats_data: dict) -> None:
+    """Map the "ALL" statistics block onto the tracked team's attributes."""
     statistics = stats_data.get("statistics", [])
 
     # SofaScore returns one block per period: "ALL" (match totals), then
@@ -496,6 +494,7 @@ def _apply_statistics(values: dict[str, Any], stats_data: dict) -> None:
 
 
 def _hex(color: str | None) -> str | None:
+    """Prefix a SofaScore colour ("ff0000") with "#"."""
     if not color:
         return None
     return color if color.startswith("#") else f"#{color}"
@@ -532,6 +531,7 @@ def apply_lineups(values: dict[str, Any], lineups: dict | None) -> dict[str, Any
 
 
 def _minute(incident: dict) -> str:
+    """Incident minute, e.g. "22'" or "45+2'"."""
     minute = incident.get("time")
     if minute is None:
         return ""
@@ -570,7 +570,7 @@ def describe_incident(incident: dict, home_name: str, away_name: str) -> str | N
 
 
 def apply_incidents(values: dict[str, Any], incidents: dict | None, home_name: str, away_name: str) -> dict[str, Any]:
-    """last_play = newest goal/card/substitution/VAR incident."""
+    """Set last_play to the newest goal/card/substitution/VAR incident."""
     if not incidents:
         return values
     for incident in incidents.get("incidents") or []:

@@ -33,13 +33,24 @@ COMPONENT = os.path.normpath(
 )
 sys.path.insert(0, COMPONENT)
 
-from sofascore_api import SPORT_MAP, SofaScoreAPI, SofaScoreApiError  # noqa: E402
+from sofascore_api import (  # noqa: E402
+    SofaScoreAPI,
+    SofaScoreApiError,
+    sofascore_sport_slug,
+)
 from sofascore_processor import (  # noqa: E402
     async_get_sofascore_statistics,
     async_process_sofascore_event,
 )
 
 WIDTH = 64
+
+# The sport values the config flow offers (const.SPORT_OPTIONS, which cannot
+# be imported here without Home Assistant installed).
+SPORTS = (
+    "american-football", "baseball", "basketball", "cricket", "football",
+    "handball", "hockey", "mma", "motorsport", "rugby", "tennis", "volleyball",
+)
 
 
 def _supports_unicode():
@@ -192,12 +203,14 @@ async def list_live(api, sport):
     """Show what is being played right now, so you can pick a team id."""
     # Diagnostic script: reaching for the raw endpoint keeps this honest about
     # what the integration's live check actually reads.
-    data = await api._make_request("/sport/%s/events/live" % sport)
+    data = await api._make_request(
+        "/sport/%s/events/live" % sofascore_sport_slug(sport)
+    )
     events = (data or {}).get("events", [])
 
     if not events:
         print("Nothing live in %s right now." % sport)
-        print("Try another sport: %s" % ", ".join(sorted(SPORT_MAP)))
+        print("Try another sport: %s" % ", ".join(SPORTS))
         return
 
     print(BAR)

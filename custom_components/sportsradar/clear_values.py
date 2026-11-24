@@ -1,11 +1,8 @@
-""" Clear all sensor values """
+"""Blank sensor values, the starting point of every update."""
 
 
 async def async_clear_values() -> dict:
-    """Clear all state attributes"""
-    new_values = {}
-
-    # Reset values
+    """Return every sensor value, unset."""
     new_values = {
         "sport": None,
         "sport_path": None,

@@ -1,4 +1,5 @@
-""" SportsRadar Team Status """
+"""The Sports Radar integration: a team's next or live match from SofaScore."""
+
 import asyncio
 from datetime import datetime, timezone
 import locale
@@ -16,9 +17,9 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity_registry import (
     async_get as async_get_entity_registry,
 )
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service import async_extract_entity_ids
 from homeassistant.helpers.typing import ConfigType
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .clear_values import async_clear_values
@@ -31,23 +32,22 @@ from .const import (
     CONF_TEAM_ID,
     COORDINATOR,
     DEFAULT_LEAGUE,
-    DEFAULT_LOGO,
+    DEFAULT_REFRESH_RATE,
     DEFAULT_SPORT_PATH,
     DEFAULT_TIMEOUT,
-    INCIDENTS_MAX_AGE,
-    REQUEST_TIMEOUT,
-    STATISTICS_MAX_AGE,
     DETAIL_RETRY_SECONDS,
-    FAILURE_BACKOFF,
     DOMAIN,
+    FAILURE_BACKOFF,
+    INCIDENTS_MAX_AGE,
     ISSUE_URL,
     LEAGUE_MAP,
     PLATFORMS,
-    DEFAULT_REFRESH_RATE,
     POST_GAME_HOLD,
     RAPID_REFRESH_RATE,
+    REQUEST_TIMEOUT,
     SERVICE_NAME_CALL_API,
     SERVICE_NAME_DIAGNOSE,
+    STATISTICS_MAX_AGE,
     VERSION,
 )
 from .sofascore_api import SofaScoreAPI, SofaScoreApiError, async_diagnose_403
@@ -178,7 +178,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Handle removal of an entry."""
-
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
@@ -187,12 +186,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
-#
-#  Only needed if Options Flow is added
-#
 async def update_options_listener(hass, entry):
-    """Update listener."""
-
+    """Reload the entry when its options change."""
     await hass.config_entries.async_reload(entry.entry_id)
 
 
@@ -201,7 +196,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     sensor_name = entry.data[CONF_NAME]
     version = entry.version
 
-    # 1-> 2->3: Migration format
+    # Versions 1 and 2 (ESPN era) may lack the league/sport keys.
     # Add CONF_LEAGUE_ID, CONF_SPORT_PATH, and CONF_LEAGUE_PATH if not already populated
     if version < 3:
         _LOGGER.debug("%s: Migrating from version %s", sensor_name, version)
@@ -213,7 +208,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             CONF_LEAGUE_PATH not in updated_config.keys()
         ):
             league_id = updated_config[CONF_LEAGUE_ID].upper()
-            updated_config.update(LEAGUE_MAP[league_id])
+            updated_config.update(LEAGUE_MAP.get(league_id, {}))
 
         if updated_config != entry.data:
             hass.config_entries.async_update_entry(entry, data=updated_config, version=3)
@@ -224,30 +219,23 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
-    """Class to manage fetching SportsRadar data."""
+    """Fetch and process SofaScore data for one sensor."""
 
     # "team name:sport" -> SofaScore team id. Shared on purpose: the id of a
     # team never changes, so every coordinator can reuse a lookup.
     team_cache = {}
 
-    def __init__(self, hass, config, entry: ConfigEntry=None):
-        """Initialize."""
+    def __init__(self, hass, config, entry: ConfigEntry | None = None):
+        """Initialize from entry data (UI) or the YAML platform config."""
         self.name = config[CONF_NAME]
         self.api_url = ""
-        self.league_id = config.get(CONF_LEAGUE_ID, "")
-        self.league_path = config.get(CONF_LEAGUE_PATH, "")
-        self.sport_path = config.get(CONF_SPORT_PATH, "football")
-        self.team_id = config[CONF_TEAM_ID]
-        self.conference_id = ""
-        if CONF_CONFERENCE_ID in config.keys():
-            if len(config[CONF_CONFERENCE_ID]) > 0:
-                self.conference_id = config[CONF_CONFERENCE_ID]
+        self.sport_path = config.get(CONF_SPORT_PATH, DEFAULT_SPORT_PATH)
+        self.team_id = config[CONF_TEAM_ID]  # a team name, or a SofaScore id
 
         self.config = config
         self.hass = hass
-        self.entry = entry #None if setup from YAML
+        self.entry = entry  # None if set up from YAML
 
-        # Initialize SofaScore API client
         # Use Home Assistant's shared session: it carries HA's DNS
         # resolver and SSL context, and HA closes it on shutdown.
         # The per-request timeout is kept well below DEFAULT_TIMEOUT, the
@@ -257,6 +245,8 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         )
         self.sofascore_team_id = None  # Will be populated after team search
         self.sofascore_event_id = None  # Fixture currently being tracked
+        # event_id -> (lineups, fetched_at); see _async_get_lineups
+        self._lineups_cache = {}
         # kind -> (event_id, fetched_at, data, tag); see _async_fetch_detail
         self._detail_cache = {}
 
@@ -265,32 +255,27 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
             "%s: Using default refresh rate (%s)", self.name, self.update_interval
         )
 
-
-    #
-    #  Return the language to use for the API
-    #
     def get_lang(self):
-        """Return language to use for API."""
+        """Return the language configured for the API.
 
+        Not used for requests yet: SofaScore's endpoints take no language, so
+        the api_language option currently has no effect.
+        """
         try:
             lang = self.hass.config.language
-        except:
+        except AttributeError:
             lang, _ = locale.getlocale()
             lang = lang or "en_US"
 
         # Override language if is set in the configuration or options
-
         if CONF_API_LANGUAGE in self.config.keys():
             lang = self.config[CONF_API_LANGUAGE].lower()
-        if self.entry and self.entry.options and CONF_API_LANGUAGE in self.entry.options and len(self.entry.options[CONF_API_LANGUAGE])>=2:
-                lang = self.entry.options[CONF_API_LANGUAGE].lower()
+        options = self.entry.options if self.entry else {}
+        if len(options.get(CONF_API_LANGUAGE) or "") >= 2:
+            lang = options[CONF_API_LANGUAGE].lower()
 
         return lang
 
-
-    #
-    #  Set team info from service call
-    #
     def update_team_info(self, sport_path, team_id):
         """Update team information when the call_api service is called."""
 
@@ -305,15 +290,11 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         # Forget the fixture we were following so the new team resolves fresh
         self.sofascore_event_id = None
 
-
-    #
-    #  Top-level method called from HA to update data for all sportsradar sensors
-    #
     async def _async_update_data(self):
         """Fetch new data, adapting the polling interval to the match state."""
         try:
             async with asyncio.timeout(DEFAULT_TIMEOUT):
-                data = await self.async_update_game_data(self.config, self.hass)
+                data = await self.async_update_game_data()
         except Exception as error:
             self._back_off()
             # This is why the entity goes unavailable, so say it plainly
@@ -348,20 +329,15 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
             self.update_interval = backoff
             _LOGGER.debug("%s: Backing off to %s after a failure", self.name, backoff)
 
-    async def async_update_game_data(self, config, hass) -> dict:
+    async def async_update_game_data(self) -> dict:
         """Fetch the tracked fixture from SofaScore and build the values."""
-        lang = self.get_lang()
-        data, _ = await self.async_call_api(config, hass, lang)
-        return await self.async_update_values(config, hass, data, lang)
+        data = await self.async_call_api()
+        return await self.async_update_values(data)
 
-    #
-    #  Call the SofaScore API to get team's next event
-    #
-    async def async_call_api(self, config, hass, lang) -> dict:
-        """Query SofaScore API for team's next event."""
-
+    async def async_call_api(self) -> dict | None:
+        """Resolve the team and return the event to show, or None."""
         sensor_name = self.name
-        team_name = self.team_id  # In SofaScore mode, team_id is actually the team name
+        team_name = self.team_id
         sport = self.sport_path
 
         data = None
@@ -419,7 +395,7 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
                         sport,
                     )
                     self.api_url = "SofaScore Team Search"
-                    return None, False
+                    return None
 
             # Resolve the fixture to show.
             #
@@ -434,7 +410,6 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
                     data = await self._async_resolve_event(sensor_name, team_name, sport)
 
                 self.api_url = f"SofaScore API - Team ID: {self.sofascore_team_id}"
-
 
         except SofaScoreApiError:
             # Reachability/blocking problem - let it bubble up so the
@@ -454,7 +429,7 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
             data = None
             self.api_url = "SofaScore API Error"
 
-        return data, False
+        return data
 
     @staticmethod
     def _hold_expired(event) -> bool:
@@ -593,7 +568,7 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         The shirts worn do not change during a game, so once SofaScore has
         published them they are kept; before that, retry every 5 minutes.
         """
-        cache = self.__dict__.setdefault("_lineups_cache", {})
+        cache = self._lineups_cache
         now = datetime.now(timezone.utc).timestamp()
         cached = cache.get(event_id)
         if cached:
@@ -710,10 +685,8 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         )
         apply_statistics(values, found.get("statistics"), sensor_name)
 
-    async def async_update_values(self, config, hass, data, lang) -> dict:
-        """Return values based on the data passed into method"""
-
-        values = {}
+    async def async_update_values(self, data) -> dict:
+        """Build the sensor values from a SofaScore event (or None)."""
         sensor_name = self.name
         sport_path = self.sport_path
         team_name = self.team_id

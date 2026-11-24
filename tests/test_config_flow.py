@@ -69,18 +69,6 @@ async def test_user_form(
         assert len(mock_setup_entry.mock_calls) == 1
 
 
-async def test_path_form(
-    hass,
-):
-    """Test we get the form."""
-    await setup.async_setup_component(hass, "persistent_notification", {})
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": "path"}
-    )
-    assert result["type"] == "form"
-    assert result["errors"] == {}
-
-#@patch("custom_components.sportsradar.sensor.async_add_entities")
 async def test_options_flow_init(
     hass,
 ):
@@ -124,13 +112,4 @@ async def test_options_flow_init(
     assert {CONF_API_LANGUAGE: "en"} == result["data"]
     assert {CONF_API_LANGUAGE: "en"} == entry.options
 
-    # Unload
-
-#  No need to unload any more
-
-#    assert await entry.async_unload(hass)
     await hass.async_block_till_done()
-
-
-
-
