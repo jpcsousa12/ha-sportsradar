@@ -281,12 +281,16 @@ async def async_process_sofascore_event(
         elif values["state"] == "PRE":
             values["private_fast_refresh"] = False
 
-            # Check if game is within 20 minutes
+            # Poll fast from 20 minutes before kickoff, and keep doing so
+            # after the scheduled time while SofaScore still reports the game
+            # as not started (late kickoff or a status that lags behind).
+            # Without this the sensor falls back to the 10 minute rate right
+            # at kickoff and stays on PRE well into the first half.
             if start_timestamp:
                 now = datetime.now(timezone.utc)
                 event_date = datetime.fromtimestamp(start_timestamp, tz=timezone.utc)
-                delta = event_date - now
-                if 0 <= delta.total_seconds() <= 1200:  # Within 20 minutes
+                delta = (event_date - now).total_seconds()
+                if -3 * 3600 <= delta <= 1200:
                     values["private_fast_refresh"] = True
 
         # Event URL

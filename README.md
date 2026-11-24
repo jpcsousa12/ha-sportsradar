@@ -20,7 +20,7 @@
 
 ## 🔄 Major Update: ESPN → SofaScore Migration
 
-This is a modified version of ha-sportsradar that uses **SofaScore** instead of ESPN as the data source.
+This is a modified version of ha-teamtracker that uses **SofaScore** instead of ESPN as the data source.
 
 ### Why SofaScore?
 
