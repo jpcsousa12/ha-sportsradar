@@ -26,7 +26,6 @@ ignore = [
 # ignore-paths is applied to explicit arguments too.
 ignore-paths = [
     "^tests/.*$",
-    "^custom_components/sportsradar/_espn_legacy/.*$",
 ]
 # Use a conservative default here; 2 should speed up most setups and not hurt
 # any too bad. Override on command line as appropriate.
@@ -163,7 +162,6 @@ testpaths = [
 norecursedirs = [
     ".git",
     "testing_config",
-    "tests/_espn_legacy",
 ]
 log_format = "%(asctime)s.%(msecs)03d %(levelname)-8s %(threadName)s %(name)s:%(filename)s:%(lineno)s %(message)s"
 log_date_format = "%Y-%m-%d %H:%M:%S"
