@@ -398,6 +398,10 @@ class SofaScoreAPI:
 
         return await self._make_request(endpoint)
 
+    async def get_event_incidents(self, event_id: int) -> dict | None:
+        """Get goals, cards, substitutions etc. for an event, newest first."""
+        return await self._make_request(f"/event/{event_id}/incidents")
+
     async def get_team_info(self, team_id: int) -> dict | None:
         """Get team information
 

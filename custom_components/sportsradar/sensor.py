@@ -379,6 +379,21 @@ class SportsRadarScoresSensor(CoordinatorEntity):
         ]
         attrs["opponent_total_shots"] = self.coordinator.data["opponent_total_shots"]
 
+        attrs["team_kit_colors"] = self.coordinator.data.get("team_kit_colors")
+        attrs["opponent_kit_colors"] = self.coordinator.data.get("opponent_kit_colors")
+        attrs["team_goalkeeper_colors"] = self.coordinator.data.get("team_goalkeeper_colors")
+        attrs["opponent_goalkeeper_colors"] = self.coordinator.data.get("opponent_goalkeeper_colors")
+        attrs["team_formation"] = self.coordinator.data.get("team_formation")
+        attrs["opponent_formation"] = self.coordinator.data.get("opponent_formation")
+        attrs["team_corners"] = self.coordinator.data.get("team_corners")
+        attrs["opponent_corners"] = self.coordinator.data.get("opponent_corners")
+        attrs["team_yellow_cards"] = self.coordinator.data.get("team_yellow_cards")
+        attrs["opponent_yellow_cards"] = self.coordinator.data.get("opponent_yellow_cards")
+        attrs["team_red_cards"] = self.coordinator.data.get("team_red_cards")
+        attrs["opponent_red_cards"] = self.coordinator.data.get("opponent_red_cards")
+        attrs["team_xg"] = self.coordinator.data.get("team_xg")
+        attrs["opponent_xg"] = self.coordinator.data.get("opponent_xg")
+
         attrs["team_sets_won"] = self.coordinator.data["team_sets_won"]
         attrs["opponent_sets_won"] = self.coordinator.data["opponent_sets_won"]
 

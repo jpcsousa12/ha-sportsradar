@@ -41,7 +41,12 @@ from .const import (
     VERSION,
 )
 from .sofascore_api import SofaScoreAPI, SofaScoreApiError, async_diagnose_403
-from .sofascore_processor import async_process_sofascore_event, async_get_sofascore_statistics
+from .sofascore_processor import (
+    apply_incidents,
+    apply_lineups,
+    async_get_sofascore_statistics,
+    async_process_sofascore_event,
+)
 
 _LOGGER = logging.getLogger(__name__)
 # team_prob = {}
@@ -601,6 +606,54 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
 
         return event
 
+    async def _async_get_lineups(self, event_id, sensor_name):
+        """Line-ups for an event, fetched once it has kit colours.
+
+        The shirts worn do not change during a game, so once SofaScore has
+        published them they are kept; before that, retry every 5 minutes.
+        """
+        cache = self.__dict__.setdefault("_lineups_cache", {})
+        now = datetime.now(timezone.utc).timestamp()
+        cached = cache.get(event_id)
+        if cached:
+            data, fetched_at = cached
+            has_kits = bool(data and (data.get("home") or {}).get("playerColor"))
+            if has_kits or now - fetched_at < 300:
+                return data
+        try:
+            data = await self.sofascore_api.get_event_lineups(event_id)
+        except SofaScoreApiError as error:
+            _LOGGER.debug("%s: Line-ups unavailable: %s", sensor_name, error)
+            data = None
+        cache.clear()  # only the current fixture is worth keeping
+        cache[event_id] = (data, now)
+        return data
+
+    async def _async_add_match_details(self, values, data, sensor_name):
+        """Kit colours/formation (from 2h before kickoff) and last_play."""
+        state = values.get("state")
+        event_id = data.get("id") if data else None
+        if not event_id or state not in ("PRE", "IN", "POST"):
+            return
+
+        start = data.get("startTimestamp") or 0
+        now = datetime.now(timezone.utc).timestamp()
+        if state != "PRE" or 0 <= start - now <= 2 * 3600:
+            apply_lineups(values, await self._async_get_lineups(event_id, sensor_name))
+
+        if state in ("IN", "POST"):
+            try:
+                incidents = await self.sofascore_api.get_event_incidents(event_id)
+            except SofaScoreApiError as error:
+                _LOGGER.debug("%s: Incidents unavailable: %s", sensor_name, error)
+                incidents = None
+            apply_incidents(
+                values,
+                incidents,
+                (data.get("homeTeam") or {}).get("name", ""),
+                (data.get("awayTeam") or {}).get("name", ""),
+            )
+
     async def async_update_values(self, config, hass, data, lang) -> dict:
         """Return values based on the data passed into method"""
 
@@ -636,6 +689,8 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
             self.sofascore_team_id,
             self.sofascore_api,
         )
+
+        await self._async_add_match_details(values, data, sensor_name)
 
         # If event is IN or coming soon, fetch additional statistics
         if values.get("state") == "IN" and data:

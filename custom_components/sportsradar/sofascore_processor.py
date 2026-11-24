@@ -434,11 +434,14 @@ async def async_get_sofascore_statistics(
 
         for group in period_stats.get("groups", []):
             for item in group.get("statisticsItems", []):
-                stat_name = item.get("name", "")
                 # homeValue/awayValue are numbers; home/away are display
-                # strings ("5", "54%")
-                home_stats[stat_name] = item.get("homeValue", item.get("home", ""))
-                away_stats[stat_name] = item.get("awayValue", item.get("away", ""))
+                # strings ("5", "54%"). Stored under both key and name.
+                home = item.get("homeValue", item.get("home", ""))
+                away = item.get("awayValue", item.get("away", ""))
+                for label in (item.get("key"), item.get("name")):
+                    if label and label not in home_stats:
+                        home_stats[label] = home
+                        away_stats[label] = away
 
         # Determine if we're home or away
         is_home = values.get("team_homeaway") == "home"
@@ -448,13 +451,23 @@ async def async_get_sofascore_statistics(
         # Map statistics to values
         # For football/soccer
         if values.get("sport") in ["football", "soccer"]:
-            values["team_shots_on_target"] = our_stats.get("Shots on target", 0)
-            values["opponent_shots_on_target"] = opp_stats.get("Shots on target", 0)
-            values["team_total_shots"] = our_stats.get("Total shots", 0)
-            values["opponent_total_shots"] = opp_stats.get("Total shots", 0)
+            # Keyed by the stable "key" field; "name" is display text
+            for attr, key, name in (
+                ("shots_on_target", "shotsOnGoal", "Shots on target"),
+                ("total_shots", "totalShotsOnGoal", "Total shots"),
+                ("corners", "cornerKicks", "Corner kicks"),
+                ("yellow_cards", "yellowCards", "Yellow cards"),
+                ("red_cards", "redCards", "Red cards"),
+                ("xg", "expectedGoals", "Expected goals"),
+            ):
+                for prefix, stats in (("team", our_stats), ("opponent", opp_stats)):
+                    value = stats.get(key, stats.get(name))
+                    if value in (None, "") and attr in ("yellow_cards", "red_cards"):
+                        value = 0  # SofaScore omits card rows until there is one
+                    values[f"{prefix}_{attr}"] = value
 
             # Ball possession already includes the percent sign ("64%")
-            possession = our_stats.get("Ball possession")
+            possession = our_stats.get("ballPossession", our_stats.get("Ball possession"))
             if possession not in (None, ""):
                 possession = str(possession).strip()
                 if possession.endswith(".0"):
@@ -469,4 +482,90 @@ async def async_get_sofascore_statistics(
         # Statistics are optional garnish; never let them fail an update.
         _LOGGER.debug("%s: Could not fetch statistics: %s", sensor_name, error)
 
+    return values
+
+
+def _hex(color: str | None) -> str | None:
+    if not color:
+        return None
+    return color if color.startswith("#") else f"#{color}"
+
+
+def apply_lineups(values: dict[str, Any], lineups: dict | None) -> dict[str, Any]:
+    """Kit colours and formation for this match, from /event/{id}/lineups.
+
+    playerColor/goalkeeperColor are the shirts actually worn in this game
+    (away kits included), unlike team_colors, which are the club colours.
+    Published with the line-ups, about an hour before kickoff.
+    """
+    if not lineups:
+        return values
+    is_home = values.get("team_homeaway") == "home"
+    sides = {
+        "team": lineups.get("home" if is_home else "away") or {},
+        "opponent": lineups.get("away" if is_home else "home") or {},
+    }
+    for prefix, side in sides.items():
+        kit = side.get("playerColor") or {}
+        gk = side.get("goalkeeperColor") or {}
+        if kit.get("primary"):
+            values[f"{prefix}_kit_colors"] = [
+                _hex(kit.get("primary")), _hex(kit.get("number")), _hex(kit.get("outline"))
+            ]
+        if gk.get("primary"):
+            values[f"{prefix}_goalkeeper_colors"] = [
+                _hex(gk.get("primary")), _hex(gk.get("number")), _hex(gk.get("outline"))
+            ]
+        if side.get("formation"):
+            values[f"{prefix}_formation"] = side["formation"]
+    return values
+
+
+def _minute(incident: dict) -> str:
+    minute = incident.get("time")
+    if minute is None:
+        return ""
+    added = incident.get("addedTime")
+    if added and added != 999:
+        return f"{minute}+{added}'"
+    return f"{minute}'"
+
+
+def describe_incident(incident: dict, home_name: str, away_name: str) -> str | None:
+    """One line for the most recent incident, or None to skip it."""
+    kind = incident.get("incidentType")
+    cls = incident.get("incidentClass") or ""
+    team = home_name if incident.get("isHome") else away_name
+    minute = _minute(incident)
+    player = incident.get("playerName") or (incident.get("player") or {}).get("name", "")
+
+    if kind == "goal":
+        score = f"{incident.get('homeScore', '')}-{incident.get('awayScore', '')}"
+        if cls == "ownGoal":
+            return f"{minute} Goal for {team}: own goal by {player} ({score})"
+        label = "Penalty goal" if cls == "penalty" else "Goal"
+        return f"{minute} {label}: {player} ({team}) {score}"
+    if kind == "card":
+        label = {"yellow": "Yellow card", "red": "Red card", "yellowRed": "Second yellow"}.get(cls, "Card")
+        return f"{minute} {label}: {player} ({team})"
+    if kind == "substitution":
+        pin = (incident.get("playerIn") or {}).get("name", "")
+        pout = (incident.get("playerOut") or {}).get("name", "")
+        return f"{minute} Substitution ({team}): {pin} on, {pout} off"
+    if kind == "varDecision":
+        return f"{minute} VAR ({team}): {cls}"
+    if kind == "inGamePenalty":
+        return f"{minute} Penalty {cls} ({team})"
+    return None  # period markers, injury time announcements
+
+
+def apply_incidents(values: dict[str, Any], incidents: dict | None, home_name: str, away_name: str) -> dict[str, Any]:
+    """last_play = newest goal/card/substitution/VAR incident."""
+    if not incidents:
+        return values
+    for incident in incidents.get("incidents") or []:
+        text = describe_incident(incident, home_name, away_name)
+        if text:
+            values["last_play"] = text
+            break
     return values
