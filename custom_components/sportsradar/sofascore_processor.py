@@ -6,15 +6,9 @@ import arrow
 
 # Handle imports for both standalone testing and Home Assistant
 try:
-    from .const import DEFAULT_LOGO
     from .sofascore_api import SofaScoreAPI
 except ImportError:
-    # Running standalone for testing - use test constants
-    try:
-        from test_const import DEFAULT_LOGO
-    except ImportError:
-        # Fallback to hardcoded values
-        DEFAULT_LOGO = "https://cdn0.iconfinder.com/data/icons/shift-interfaces/32/Error-512.png"
+    # Running standalone for testing
     import sofascore_api
     SofaScoreAPI = sofascore_api.SofaScoreAPI
 

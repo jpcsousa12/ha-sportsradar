@@ -49,6 +49,14 @@ def _api_patches(team, live=None, next_event=None, event=None):
             "custom_components.sportsradar.SofaScoreAPI.get_event_statistics",
             return_value=None,
         ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_event_lineups",
+            return_value=None,
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_event_incidents",
+            return_value=None,
+        ),
     )
 
 

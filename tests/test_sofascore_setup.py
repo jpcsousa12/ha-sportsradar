@@ -48,7 +48,9 @@ TEAM_RESULT = {
 }
 
 
-def _patch_api(live=None, next_event=None, event=None, stats=None):
+def _patch_api(
+    live=None, next_event=None, event=None, stats=None, lineups=None, incidents=None
+):
     """Patch the SofaScore client so the integration never hits the network."""
     return (
         patch(
@@ -74,6 +76,19 @@ def _patch_api(live=None, next_event=None, event=None, stats=None):
         patch(
             "custom_components.sportsradar.SofaScoreAPI.get_event_statistics",
             return_value=stats,
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_event_lineups",
+            # an exception instance is raised instead of returned
+            **(
+                {"side_effect": lineups}
+                if isinstance(lineups, Exception)
+                else {"return_value": lineups}
+            ),
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_event_incidents",
+            return_value=incidents,
         ),
     )
 
@@ -359,3 +374,59 @@ async def test_first_update_has_venue_from_the_detail_endpoint(hass, socket_enab
     assert state is not None
     assert state.state == "PRE"
     assert state.attributes.get("venue") == "Estadio do Dragao"
+
+
+# Shapes taken from a live response (Feyenoord v FC Porto, Nov 2026)
+LIVE_LINEUPS = {
+    "confirmed": True,
+    "home": {
+        "formation": "4-3-3",
+        "playerColor": {"primary": "ff0000", "number": "000000", "outline": "ff0000"},
+        "goalkeeperColor": {"primary": "8efd71", "number": "0d0d0d", "outline": "8efd71"},
+    },
+    "away": {
+        "formation": "4-2-3-1",
+        "playerColor": {"primary": "c2e5e9", "number": "0477de", "outline": "c2e5e9"},
+        "goalkeeperColor": {"primary": "eca269", "number": "12244d", "outline": "eca269"},
+    },
+}
+
+LIVE_INCIDENTS = {
+    "incidents": [
+        {"incidentType": "period", "text": "First half", "time": 45, "addedTime": 999},
+        {
+            "incidentType": "card",
+            "incidentClass": "yellow",
+            "isHome": False,
+            "playerName": "Alberto Costa",
+            "time": 22,
+        },
+    ]
+}
+
+
+async def test_kit_colours_formation_and_last_play(hass, socket_enabled):
+    """Line-ups and incidents land on the tracked team's side of the sensor."""
+    live = FIX["live_event"]
+    await _setup(
+        hass, live=live, event=live, lineups=LIVE_LINEUPS, incidents=LIVE_INCIDENTS
+    )
+
+    attrs = hass.states.get("sensor.test_sofascore_porto").attributes
+    home = attrs["team_homeaway"] == "home"
+    ours, theirs = ("home", "away") if home else ("away", "home")
+    expected_kit = "#" + LIVE_LINEUPS[ours]["playerColor"]["primary"]
+    assert attrs["team_kit_colors"][0] == expected_kit
+    assert attrs["team_formation"] == LIVE_LINEUPS[ours]["formation"]
+    assert attrs["opponent_formation"] == LIVE_LINEUPS[theirs]["formation"]
+    assert attrs["last_play"].startswith("22' Yellow card: Alberto Costa")
+
+
+async def test_match_details_failure_does_not_break_update(hass, socket_enabled):
+    """A failing line-ups call leaves the sensor working, just without kits."""
+    live = FIX["live_event"]
+    await _setup(hass, live=live, event=live, lineups=RuntimeError("boom"))
+
+    state = hass.states.get("sensor.test_sofascore_porto")
+    assert state.state == "IN"
+    assert state.attributes["team_kit_colors"] is None

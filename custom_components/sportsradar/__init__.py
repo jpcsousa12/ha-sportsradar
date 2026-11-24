@@ -630,7 +630,17 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         return data
 
     async def _async_add_match_details(self, values, data, sensor_name):
-        """Kit colours/formation (from 2h before kickoff) and last_play."""
+        """Kit colours/formation (from 2h before kickoff) and last_play.
+
+        Optional extras: a failure here is logged and never fails the update.
+        """
+        try:
+            await self._async_add_match_details_unguarded(values, data, sensor_name)
+        except Exception as error:  # pylint: disable=broad-exception-caught
+            _LOGGER.debug("%s: Could not add match details: %s", sensor_name, error)
+
+    async def _async_add_match_details_unguarded(self, values, data, sensor_name):
+        """Fetch line-ups and incidents and apply them to values."""
         state = values.get("state")
         event_id = data.get("id") if data else None
         if not event_id or state not in ("PRE", "IN", "POST"):
