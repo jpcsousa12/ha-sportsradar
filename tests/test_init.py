@@ -8,6 +8,7 @@ import os
 from unittest.mock import patch
 
 import pytest
+import voluptuous as vol
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sportsradar.const import DOMAIN
@@ -167,6 +168,114 @@ async def test_unload_entry(hass, socket_enabled):
         assert await hass.config_entries.async_remove(entries[0].entry_id)
         await hass.async_block_till_done()
         assert len(hass.states.async_entity_ids(SENSOR_DOMAIN)) == 0
+    finally:
+        for p in patches:
+            p.stop()
+
+
+async def test_call_api_accepts_a_single_entity_id_string(hass, socket_enabled):
+    """A plain string target must be treated as one entity, not characters.
+
+    league_path is also optional now: SofaScore does not use it.
+    """
+    patches = _api_patches(
+        PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"]
+    )
+    for p in patches:
+        p.start()
+    try:
+        entry = MockConfigEntry(
+            domain=DOMAIN, title="sports_radar", data=CONFIG_DATA_SOFASCORE
+        )
+        entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    finally:
+        for p in patches:
+            p.stop()
+
+    live = FIX["live_event"]
+    patches = _api_patches(OTHER, live=live, event=live)
+    for p in patches:
+        p.start()
+    try:
+        await hass.services.async_call(
+            domain=DOMAIN,
+            service="call_api",
+            service_data={"team_id": "Benfica"},
+            target={"entity_id": "sensor.test_tt_sofascore"},
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+    finally:
+        for p in patches:
+            p.stop()
+
+    assert hass.states.get("sensor.test_tt_sofascore").state == "IN"
+
+
+async def test_call_api_requires_a_team(hass, socket_enabled):
+    """The service schema rejects a call without team_id."""
+    patches = _api_patches(
+        PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"]
+    )
+    for p in patches:
+        p.start()
+    try:
+        entry = MockConfigEntry(
+            domain=DOMAIN, title="sports_radar", data=CONFIG_DATA_SOFASCORE
+        )
+        entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        with pytest.raises(vol.Invalid):
+            await hass.services.async_call(
+                domain=DOMAIN,
+                service="call_api",
+                service_data={"sport_path": "football"},
+                target={"entity_id": "sensor.test_tt_sofascore"},
+                blocking=True,
+            )
+    finally:
+        for p in patches:
+            p.stop()
+
+
+async def test_services_survive_unloading_one_of_two_entries(hass, socket_enabled):
+    """Services are registered once for the integration, not per entry."""
+    patches = _api_patches(
+        PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"]
+    )
+    for p in patches:
+        p.start()
+    try:
+        first = MockConfigEntry(
+            domain=DOMAIN, title="first", data=CONFIG_DATA_SOFASCORE
+        )
+        second = MockConfigEntry(
+            domain=DOMAIN,
+            title="second",
+            data={**CONFIG_DATA_SOFASCORE, "name": "second_sensor"},
+        )
+        for entry in (first, second):
+            entry.add_to_hass(hass)
+            assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert await hass.config_entries.async_unload(first.entry_id)
+        await hass.async_block_till_done()
+
+        assert hass.services.has_service(DOMAIN, "call_api")
+        assert hass.services.has_service(DOMAIN, "diagnose")
+        await hass.services.async_call(
+            domain=DOMAIN,
+            service="call_api",
+            service_data={"team_id": "FC Porto"},
+            target={"entity_id": "sensor.second_sensor"},
+            blocking=True,
+        )
+        assert hass.states.get("sensor.second_sensor").state == "PRE"
     finally:
         for p in patches:
             p.stop()

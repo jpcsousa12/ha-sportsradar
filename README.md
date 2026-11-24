@@ -120,8 +120,7 @@ target:
   entity_id: sensor.sports_radar
 data:
   sport_path: football
-  league_path: ""   # not used with SofaScore
-  team_id: Real Madrid
+  team_id: Real Madrid  # or the SofaScore numeric id
 ```
 
 ### `sportsradar.diagnose`

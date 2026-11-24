@@ -5,13 +5,17 @@ import locale
 import logging
 
 import arrow
+import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity_registry import (
     async_get as async_get_entity_registry,
 )
+from homeassistant.helpers.service import async_extract_entity_ids
+from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -26,6 +30,7 @@ from .const import (
     COORDINATOR,
     DEFAULT_LEAGUE,
     DEFAULT_LOGO,
+    DEFAULT_SPORT_PATH,
     DEFAULT_TIMEOUT,
     DOMAIN,
     ISSUE_URL,
@@ -47,64 +52,101 @@ from .sofascore_processor import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-# team_prob = {}
-# oppo_prob = {}
+
+# Sensors are set up from config entries (or the YAML sensor platform); there
+# is no `sportsradar:` top-level YAML key.
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+# league_path and conference_id are ESPN-era fields. They are still accepted
+# so existing automations keep validating, but SofaScore needs neither.
+CALL_API_SCHEMA = cv.make_entity_service_schema(
+    {
+        vol.Required(CONF_TEAM_ID): cv.string,
+        vol.Optional(CONF_SPORT_PATH, default=DEFAULT_SPORT_PATH): cv.string,
+        vol.Optional(CONF_LEAGUE_PATH): cv.string,
+        vol.Optional(CONF_CONFERENCE_ID): cv.string,
+    }
+)
+
+
+def get_entry_id_from_entity_id(hass: HomeAssistant, entity_id: str) -> str | None:
+    """Return the config entry id that owns entity_id, if any."""
+    entity_entry = async_get_entity_registry(hass).async_get(entity_id)
+    return entity_entry.config_entry_id if entity_entry else None
+
+
+def _coordinator_for_entity(hass: HomeAssistant, entity_id: str):
+    """Find the coordinator behind a sensor, set up from the UI or YAML."""
+    domain_data = hass.data.get(DOMAIN, {})
+
+    # UI entries are indexed by entry id, YAML sensors by sensor name, which
+    # is assumed to match the entity's object id.
+    key = get_entry_id_from_entity_id(hass, entity_id) or entity_id.split(".")[-1]
+    return domain_data.get(key, {}).get(COORDINATOR)
+
+
+async def async_call_api_service(call: ServiceCall) -> None:
+    """Point the targeted sensors at another team and refresh them."""
+    hass = call.hass
+    sport_path = call.data[CONF_SPORT_PATH]
+    team_id = call.data[CONF_TEAM_ID]
+
+    for entity_id in await async_extract_entity_ids(hass, call):
+        coordinator = _coordinator_for_entity(hass, entity_id)
+        if coordinator is None:
+            # A YAML sensor whose name does not match its entity id (for
+            # example because names were duplicated), or not our entity.
+            _LOGGER.info(
+                "[service=call_api] No Sports Radar sensor found for %s",
+                entity_id,
+            )
+            continue
+        coordinator.update_team_info(sport_path, team_id)
+        await coordinator.async_refresh()
+
+
+async def async_diagnose_service(call: ServiceCall) -> None:
+    """Report which client configurations SofaScore accepts from this host.
+
+    Runs in Home Assistant's own process, so the Python build, OpenSSL and
+    network path are exactly the ones the integration uses. Results go to
+    the log at error level so they are visible without enabling debug.
+    """
+    results = await async_diagnose_403()
+
+    _LOGGER.error("Sports Radar connectivity diagnosis:")
+    for label, outcome in results:
+        verdict = "ALLOWED" if outcome == 200 else "refused"
+        _LOGGER.error("  %-44s %s (%s)", label, verdict, outcome)
+
+    if any(outcome == 200 for _, outcome in results):
+        _LOGGER.error(
+            "  At least one configuration works from this host - report "
+            "which, and the integration can use it."
+        )
+    else:
+        _LOGGER.error(
+            "  Every configuration was refused. This host is blocked by "
+            "SofaScore; no change to the integration will fix that."
+        )
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register the integration's services, once for all sensors."""
+    hass.services.async_register(
+        DOMAIN, SERVICE_NAME_CALL_API, async_call_api_service, schema=CALL_API_SCHEMA
+    )
+    hass.services.async_register(DOMAIN, SERVICE_NAME_DIAGNOSE, async_diagnose_service)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Load the saved entities."""
-
-
-    async def get_entry_id_from_entity_id(hass: HomeAssistant, entity_id: str):
-        """Retrieve entry_id from entity_id."""
-        # Get the entity registry
-        entity_registry = async_get_entity_registry(hass)
-
-        # Find the entry associated with the given entity_id
-        entry = entity_registry.async_get(entity_id)
-
-        if entry:
-            return entry.config_entry_id
-
-        return None
-
-
-    async def async_call_api_service(call):
-        """Handle the service action call."""
-
-        sport_path = call.data.get(CONF_SPORT_PATH, "football")
-        league_path = call.data.get(CONF_LEAGUE_PATH, "nfl")
-        team_id = call.data.get(CONF_TEAM_ID, "cle")
-        conference_id = call.data.get(CONF_CONFERENCE_ID, "")
-        entity_ids = call.data.get("entity_id", "none")
-
-        for entity_id in entity_ids:
-            entry_id = await get_entry_id_from_entity_id(hass, entity_id)
-
-            if entry_id: # Set up from UI, use entry_id as index
-                sensor_coordinator = hass.data[DOMAIN][entry_id][COORDINATOR]
-                sensor_coordinator.update_team_info(sport_path, league_path, team_id, conference_id)
-                await sensor_coordinator.async_refresh()
-            else: # Set up from YAML, use sensor_name (from entity_name) as index
-                sensor_name = entity_id.split('.')[-1]
-                if sensor_name in hass.data[DOMAIN] and COORDINATOR in hass.data[DOMAIN][sensor_name]:
-                    sensor_coordinator = hass.data[DOMAIN][sensor_name][COORDINATOR]
-                    sensor_coordinator.update_team_info(sport_path, league_path, team_id, conference_id)
-                    await sensor_coordinator.async_refresh()
-                else: # YAML had duplicate names so it doesn't match the entity_name
-                    _LOGGER.info(
-                        "%s: [service=call_api] No entry_id found (likely because of non-unique sensor names in YAML) for entity_id: %s",
-                        sensor_name, 
-                        entity_id,
-                    )
-
-    # Print startup message
-
+    """Set up a sensor from a config entry."""
     sensor_name = entry.data[CONF_NAME]
 
     _LOGGER.info(
         "%s: Setting up sensor from UI configuration using SportsRadar %s, if you have any issues please report them here: %s",
-        sensor_name, 
+        sensor_name,
         VERSION,
         ISSUE_URL,
     )
@@ -112,10 +154,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     entry.async_on_unload(entry.add_update_listener(update_options_listener))
 
-    # Setup the data coordinator
-    coordinator = SportsRadarDataUpdateCoordinator(
-        hass, entry.data, entry
-    )
+    coordinator = SportsRadarDataUpdateCoordinator(hass, entry.data, entry)
 
     # Fetch initial data so we have data when entities subscribe
     await coordinator.async_refresh()
@@ -126,36 +165,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-#
-#  Register services for sensor
-#
-    async def async_diagnose_service(call):
-        """Report which client configurations SofaScore accepts from this host.
-
-        Runs in Home Assistant's own process, so the Python build, OpenSSL and
-        network path are exactly the ones the integration uses. Results go to
-        the log at error level so they are visible without enabling debug.
-        """
-        results = await async_diagnose_403()
-
-        _LOGGER.error("Sports Radar connectivity diagnosis:")
-        for label, outcome in results:
-            verdict = "ALLOWED" if outcome == 200 else "refused"
-            _LOGGER.error("  %-44s %s (%s)", label, verdict, outcome)
-
-        if any(outcome == 200 for _, outcome in results):
-            _LOGGER.error(
-                "  At least one configuration works from this host - report "
-                "which, and the integration can use it."
-            )
-        else:
-            _LOGGER.error(
-                "  Every configuration was refused. This host is blocked by "
-                "SofaScore; no change to the integration will fix that."
-            )
-
-    hass.services.async_register(DOMAIN, SERVICE_NAME_CALL_API, async_call_api_service,)
-    hass.services.async_register(DOMAIN, SERVICE_NAME_DIAGNOSE, async_diagnose_service,)
 
     return True
 
@@ -163,14 +172,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Handle removal of an entry."""
 
-    unload_ok = all(
-        await asyncio.gather(
-            *[
-                hass.config_entries.async_forward_entry_unload(entry, platform)
-                for platform in PLATFORMS
-            ]
-        )
-    )
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
@@ -278,12 +280,11 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
     #
     #  Set team info from service call
     #
-    def update_team_info(self, sport_path, league_path, team_id, conference_id=""):
-        """update team information when call_api service is called."""
+    def update_team_info(self, sport_path, team_id):
+        """Update team information when the call_api service is called."""
 
         self.sport_path = sport_path
-        # league_path is ignored in SofaScore mode
-        self.team_id = team_id  # This is the team name in SofaScore mode
+        self.team_id = team_id  # a team name, or a SofaScore numeric id
 
         # Clear team ID cache to force re-search
         team_cache_key = f"{team_id}:{sport_path}"

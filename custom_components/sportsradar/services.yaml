@@ -1,37 +1,42 @@
 call_api:
   name: Sports Radar Call API
-  description: Sets the sportsradar sensor based on the input parameters, calls the ESPN API, and populates the sensor attributes.
+  description: >-
+    Points the targeted Sports Radar sensors at another team, fetches its
+    fixture from SofaScore and updates the sensor attributes. The change lasts
+    until Home Assistant restarts or the entry is reloaded.
   target:
     entity:
       domain: sensor
       integration: sportsradar
   fields:
+    team_id:
+      name: Team
+      description: Team name as SofaScore spells it, or its SofaScore numeric id.
+      required: true
+      example: 'FC Porto'
+      selector:
+        text:
     sport_path:
       name: Sport
-      description: Sport path
-      required: true
+      description: >-
+        SofaScore sport slug, for example football, basketball, tennis,
+        hockey or american-football. Defaults to football.
+      required: false
       example: 'football'
       selector:
         text:
     league_path:
-      name: League
-      description: League path
-      required: true
-      example: 'nfl'
-      selector:
-        text:
-    team_id:
-      name: Team
-      description: Team ID
-      required: true
-      example: 'CLE'
+      name: League (ignored)
+      description: Deprecated and ignored; SofaScore finds the competition itself.
+      required: false
+      advanced: true
       selector:
         text:
     conference_id:
-      name: Conference
-      description: Conference ID (only for NCAA)
+      name: Conference (ignored)
+      description: Deprecated and ignored.
       required: false
-      example: '5'
+      advanced: true
       selector:
         text:
 diagnose:
