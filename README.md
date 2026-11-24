@@ -100,10 +100,11 @@ Each of these exists as `team_*` (the tracked team) and `opponent_*`.
 so they appear once SofaScore publishes them, usually about an hour before
 kickoff. Unlike `*_colors`, they reflect away and third kits.
 
-### Live statistics (football)
+### Match statistics (football)
 `possession`, `team_total_shots`, `team_shots_on_target`, `team_corners`,
 `team_yellow_cards`, `team_red_cards`, `team_xg`, and the same for
-`opponent_*`.
+`opponent_*`. Updated during the match and kept at their final values after
+full time.
 
 Attributes kept from ha-teamtracker for compatibility but not provided by
 SofaScore (`odds`, `tv_network`, `*_rank`, `*_record`, `*_win_probability`,

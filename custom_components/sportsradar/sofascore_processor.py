@@ -390,7 +390,7 @@ async def async_get_sofascore_statistics(
     api_client: SofaScoreAPI,
     sensor_name: str,
 ) -> dict[str, Any]:
-    """Fetch and add statistics to values dict
+    """Fetch an event's statistics and add them to values.
 
     Args:
         values: Dictionary to update with statistics
@@ -404,79 +404,95 @@ async def async_get_sofascore_statistics(
     """
     try:
         stats_data = await api_client.get_event_statistics(event_id)
-
-        if not stats_data:
-            return values
-
-        statistics = stats_data.get("statistics", [])
-
-        # SofaScore returns one block per period: "ALL" (match totals), then
-        # "1ST", "2ND" and so on. Only the "ALL" block is wanted - iterating
-        # over every block lets the last one win, which silently replaces the
-        # match totals with second-half-only numbers once a game gets that far.
-        period_stats = next(
-            (p for p in statistics if p.get("period") == "ALL"),
-            statistics[0] if statistics else None,
-        )
-
-        if not period_stats:
-            return values
-
-        # Find home/away stats
-        home_stats = {}
-        away_stats = {}
-
-        for group in period_stats.get("groups", []):
-            for item in group.get("statisticsItems", []):
-                # homeValue/awayValue are numbers; home/away are display
-                # strings ("5", "54%"). Stored under both key and name.
-                home = item.get("homeValue", item.get("home", ""))
-                away = item.get("awayValue", item.get("away", ""))
-                for label in (item.get("key"), item.get("name")):
-                    if label and label not in home_stats:
-                        home_stats[label] = home
-                        away_stats[label] = away
-
-        # Determine if we're home or away
-        is_home = values.get("team_homeaway") == "home"
-        our_stats = home_stats if is_home else away_stats
-        opp_stats = away_stats if is_home else home_stats
-
-        # Map statistics to values
-        # For football/soccer
-        if values.get("sport") in ["football", "soccer"]:
-            # Keyed by the stable "key" field; "name" is display text
-            for attr, key, name in (
-                ("shots_on_target", "shotsOnGoal", "Shots on target"),
-                ("total_shots", "totalShotsOnGoal", "Total shots"),
-                ("corners", "cornerKicks", "Corner kicks"),
-                ("yellow_cards", "yellowCards", "Yellow cards"),
-                ("red_cards", "redCards", "Red cards"),
-                ("xg", "expectedGoals", "Expected goals"),
-            ):
-                for prefix, stats in (("team", our_stats), ("opponent", opp_stats)):
-                    value = stats.get(key, stats.get(name))
-                    if value in (None, "") and attr in ("yellow_cards", "red_cards"):
-                        value = 0  # SofaScore omits card rows until there is one
-                    values[f"{prefix}_{attr}"] = value
-
-            # Ball possession already includes the percent sign ("64%")
-            possession = our_stats.get("ballPossession", our_stats.get("Ball possession"))
-            if possession not in (None, ""):
-                possession = str(possession).strip()
-                if possession.endswith(".0"):
-                    possession = possession[:-2]
-                values["possession"] = (
-                    possession if possession.endswith("%") else f"{possession}%"
-                )
-
-        _LOGGER.debug("%s: Added statistics for event %s", sensor_name, event_id)
-
     except Exception as error:  # pylint: disable=broad-exception-caught
         # Statistics are optional garnish; never let them fail an update.
         _LOGGER.debug("%s: Could not fetch statistics: %s", sensor_name, error)
+        return values
+
+    apply_statistics(values, stats_data, sensor_name)
+    _LOGGER.debug("%s: Added statistics for event %s", sensor_name, event_id)
+    return values
+
+
+def apply_statistics(
+    values: dict[str, Any], stats_data: dict | None, sensor_name: str = ""
+) -> dict[str, Any]:
+    """Add shots, corners, cards, xG and possession from /event/{id}/statistics."""
+    if not stats_data:
+        return values
+
+    try:
+        _apply_statistics(values, stats_data)
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        # An unexpected payload shape must not fail the update.
+        _LOGGER.debug("%s: Could not read statistics: %s", sensor_name, error)
 
     return values
+
+
+def _apply_statistics(values: dict[str, Any], stats_data: dict) -> None:
+    statistics = stats_data.get("statistics", [])
+
+    # SofaScore returns one block per period: "ALL" (match totals), then
+    # "1ST", "2ND" and so on. Only the "ALL" block is wanted - iterating
+    # over every block lets the last one win, which silently replaces the
+    # match totals with second-half-only numbers once a game gets that far.
+    period_stats = next(
+        (p for p in statistics if p.get("period") == "ALL"),
+        statistics[0] if statistics else None,
+    )
+
+    if not period_stats:
+        return
+
+    # Find home/away stats
+    home_stats = {}
+    away_stats = {}
+
+    for group in period_stats.get("groups", []):
+        for item in group.get("statisticsItems", []):
+            # homeValue/awayValue are numbers; home/away are display
+            # strings ("5", "54%"). Stored under both key and name.
+            home = item.get("homeValue", item.get("home", ""))
+            away = item.get("awayValue", item.get("away", ""))
+            for label in (item.get("key"), item.get("name")):
+                if label and label not in home_stats:
+                    home_stats[label] = home
+                    away_stats[label] = away
+
+    # Determine if we're home or away
+    is_home = values.get("team_homeaway") == "home"
+    our_stats = home_stats if is_home else away_stats
+    opp_stats = away_stats if is_home else home_stats
+
+    # Only football statistics are mapped to attributes.
+    if values.get("sport") not in ["football", "soccer"]:
+        return
+
+    # Keyed by the stable "key" field; "name" is display text
+    for attr, key, name in (
+        ("shots_on_target", "shotsOnGoal", "Shots on target"),
+        ("total_shots", "totalShotsOnGoal", "Total shots"),
+        ("corners", "cornerKicks", "Corner kicks"),
+        ("yellow_cards", "yellowCards", "Yellow cards"),
+        ("red_cards", "redCards", "Red cards"),
+        ("xg", "expectedGoals", "Expected goals"),
+    ):
+        for prefix, stats in (("team", our_stats), ("opponent", opp_stats)):
+            value = stats.get(key, stats.get(name))
+            if value in (None, "") and attr in ("yellow_cards", "red_cards"):
+                value = 0  # SofaScore omits card rows until there is one
+            values[f"{prefix}_{attr}"] = value
+
+    # Ball possession already includes the percent sign ("64%")
+    possession = our_stats.get("ballPossession", our_stats.get("Ball possession"))
+    if possession not in (None, ""):
+        possession = str(possession).strip()
+        if possession.endswith(".0"):
+            possession = possession[:-2]
+        values["possession"] = (
+            possession if possession.endswith("%") else f"{possession}%"
+        )
 
 
 def _hex(color: str | None) -> str | None:

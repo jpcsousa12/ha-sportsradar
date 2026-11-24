@@ -200,6 +200,8 @@ POST_GAME_HOLD = timedelta(hours=5)
 
 DEFAULT_REFRESH_RATE = timedelta(minutes=10)
 RAPID_REFRESH_RATE = timedelta(seconds=5)
+# How soon an empty statistics/incidents answer is asked for again.
+DETAIL_RETRY_SECONDS = 300
 # First retry interval after a failed update; doubles up to the default rate.
 FAILURE_BACKOFF = timedelta(seconds=30)
 

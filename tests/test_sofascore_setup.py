@@ -563,3 +563,45 @@ async def test_stale_unstarted_last_event_is_not_taken_as_live(hass, socket_enab
     state = hass.states.get("sensor.test_sofascore_porto")
     assert state.state == "PRE"
     assert str(upcoming["id"]) in state.attributes["api_message"]
+
+
+async def test_finished_match_keeps_its_final_statistics(hass, socket_enabled):
+    """At full time the statistics stay on the sensor, fetched only once.
+
+    They used to be fetched only while the match was IN, so shots, corners,
+    cards, xG and possession went back to None at the final whistle.
+    """
+    finished = FIX["finished_event"]
+    patches = _patch_api(
+        next_event=finished,
+        event=finished,
+        stats=FIX["statistics_multi_period"],
+        incidents=LIVE_INCIDENTS,
+    )
+    mocks = [p.start() for p in patches]
+    get_statistics, get_incidents = mocks[5], mocks[7]
+    try:
+        entry = MockConfigEntry(
+            domain=DOMAIN, title="sports_radar", data=CONFIG_SOFASCORE
+        )
+        entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        await coordinator.async_refresh()
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+    finally:
+        for p in patches:
+            p.stop()
+
+    attrs = hass.states.get("sensor.test_sofascore_porto").attributes
+    assert hass.states.get("sensor.test_sofascore_porto").state == "POST"
+    # Porto were away at Casa Pia: the away column of the ALL block.
+    assert str(attrs["team_total_shots"]) == "17"
+    assert str(attrs["team_shots_on_target"]) == "8"
+    assert attrs["possession"] == "64%"
+    assert attrs["last_play"].startswith("22' Yellow card")
+    assert get_statistics.call_count == 1
+    assert get_incidents.call_count == 1

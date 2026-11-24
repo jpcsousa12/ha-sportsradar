@@ -3,6 +3,8 @@ import asyncio
 from datetime import datetime, timezone
 import locale
 import logging
+import math
+import time
 
 import arrow
 import voluptuous as vol
@@ -32,6 +34,7 @@ from .const import (
     DEFAULT_LOGO,
     DEFAULT_SPORT_PATH,
     DEFAULT_TIMEOUT,
+    DETAIL_RETRY_SECONDS,
     FAILURE_BACKOFF,
     DOMAIN,
     ISSUE_URL,
@@ -48,7 +51,7 @@ from .sofascore_api import SofaScoreAPI, SofaScoreApiError, async_diagnose_403
 from .sofascore_processor import (
     apply_incidents,
     apply_lineups,
-    async_get_sofascore_statistics,
+    apply_statistics,
     async_process_sofascore_event,
 )
 
@@ -249,6 +252,8 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         )
         self.sofascore_team_id = None  # Will be populated after team search
         self.sofascore_event_id = None  # Fixture currently being tracked
+        # kind -> (event_id, fetched_at, data, tag); see _async_fetch_detail
+        self._detail_cache = {}
 
         super().__init__(hass, _LOGGER, name=self.name, update_interval=DEFAULT_REFRESH_RATE)
         _LOGGER.debug(
@@ -600,8 +605,34 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         cache[event_id] = (data, now)
         return data
 
+    async def _async_fetch_detail(self, kind, event_id, fetch, max_age, tag, sensor_name):
+        """Fetch an optional per-event resource, reusing a fresh cached copy.
+
+        One copy per kind is kept, for the current fixture only. The copy is
+        reused while it is younger than max_age and was fetched with the same
+        tag, so a change of tag (the match state, say) forces a refetch. An
+        empty answer is retried after DETAIL_RETRY_SECONDS at the latest. On
+        failure the last copy for this event, if any, is returned.
+        """
+        now = time.monotonic()
+        cached = self._detail_cache.get(kind)
+        same_event = cached is not None and cached[0] == event_id
+        if same_event:
+            _, fetched_at, data, cached_tag = cached
+            if data is None:
+                max_age = min(max_age, DETAIL_RETRY_SECONDS)
+            if cached_tag == tag and now - fetched_at < max_age:
+                return data
+        try:
+            data = await fetch(event_id)
+        except SofaScoreApiError as error:
+            _LOGGER.debug("%s: %s unavailable: %s", sensor_name, kind, error)
+            return cached[2] if same_event else None
+        self._detail_cache[kind] = (event_id, now, data, tag)
+        return data
+
     async def _async_add_match_details(self, values, data, sensor_name):
-        """Kit colours/formation (from 2h before kickoff) and last_play.
+        """Kit colours/formation (from 2h before kickoff), last_play and statistics.
 
         Optional extras: a failure here is logged and never fails the update.
         """
@@ -611,7 +642,7 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.debug("%s: Could not add match details: %s", sensor_name, error)
 
     async def _async_add_match_details_unguarded(self, values, data, sensor_name):
-        """Fetch line-ups and incidents and apply them to values."""
+        """Fetch line-ups, incidents and statistics and apply them to values."""
         state = values.get("state")
         event_id = data.get("id") if data else None
         if not event_id or state not in ("PRE", "IN", "POST"):
@@ -620,20 +651,46 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         start = data.get("startTimestamp") or 0
         now = datetime.now(timezone.utc).timestamp()
         if state != "PRE" or 0 <= start - now <= 2 * 3600:
-            apply_lineups(values, await self._async_get_lineups(event_id, sensor_name))
-
-        if state in ("IN", "POST"):
             try:
-                incidents = await self.sofascore_api.get_event_incidents(event_id)
-            except SofaScoreApiError as error:
-                _LOGGER.debug("%s: Incidents unavailable: %s", sensor_name, error)
-                incidents = None
-            apply_incidents(
-                values,
-                incidents,
-                (data.get("homeTeam") or {}).get("name", ""),
-                (data.get("awayTeam") or {}).get("name", ""),
-            )
+                lineups = await self._async_get_lineups(event_id, sensor_name)
+            except Exception as error:  # pylint: disable=broad-exception-caught
+                _LOGGER.debug("%s: Could not add line-ups: %s", sensor_name, error)
+            else:
+                apply_lineups(values, lineups)
+
+        if state not in ("IN", "POST"):
+            return
+
+        if state == "IN":
+            max_age, tag = 0, state
+        else:
+            # The numbers are final once the match is over: fetch them once.
+            max_age, tag = math.inf, state
+
+        incidents = await self._async_fetch_detail(
+            "incidents",
+            event_id,
+            self.sofascore_api.get_event_incidents,
+            max_age,
+            tag,
+            sensor_name,
+        )
+        apply_incidents(
+            values,
+            incidents,
+            (data.get("homeTeam") or {}).get("name", ""),
+            (data.get("awayTeam") or {}).get("name", ""),
+        )
+
+        statistics = await self._async_fetch_detail(
+            "statistics",
+            event_id,
+            self.sofascore_api.get_event_statistics,
+            max_age,
+            tag,
+            sensor_name,
+        )
+        apply_statistics(values, statistics, sensor_name)
 
     async def async_update_values(self, config, hass, data, lang) -> dict:
         """Return values based on the data passed into method"""
@@ -672,17 +729,5 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
         await self._async_add_match_details(values, data, sensor_name)
-
-        # If event is IN or coming soon, fetch additional statistics
-        if values.get("state") == "IN" and data:
-            event_id = data.get("id")
-            if event_id:
-                values = await async_get_sofascore_statistics(
-                    values,
-                    event_id,
-                    self.sofascore_team_id,
-                    self.sofascore_api,
-                    sensor_name,
-                )
 
         return values
