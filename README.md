@@ -5,247 +5,187 @@
 <h1 align="center">Sports Radar</h1>
 
 <p align="center">
-  Home Assistant sports tracker powered by the SofaScore API.
+  Home Assistant sensor that follows a team's matches, with data from SofaScore.
 </p>
 
+<p align="center">
+  <a href="https://github.com/jpcsousa12/ha-sportsradar/releases/latest"><img src="https://img.shields.io/github/v/release/jpcsousa12/ha-sportsradar" alt="Latest release"></a>
+  <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS Custom"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/jpcsousa12/ha-sportsradar" alt="License"></a>
+</p>
 
-> **Fork notice.** This project is derived from
-> [vasqued2/ha-teamtracker](https://github.com/vasqued2/ha-teamtracker) and is
+> **Fork notice.** Derived from
+> [vasqued2/ha-teamtracker](https://github.com/vasqued2/ha-teamtracker) and
 > licensed under the **GNU General Public License v3.0** (see [LICENSE](LICENSE)),
-> the same licence as the upstream project. Copyright in the original work
-> remains with its authors.
->
-> The data source has been changed from ESPN to **SofaScore**. Despite the
-> repository name, this integration does **not** use Sportradar.
+> like the upstream project. Copyright in the original work remains with its
+> authors. The data source was changed from ESPN to **SofaScore**. Despite the
+> name, this integration does **not** use Sportradar.
 
-## 🔄 Major Update: ESPN → SofaScore Migration
+## What it does
 
-This is a modified version of ha-teamtracker that uses **SofaScore** instead of ESPN as the data source.
+You give it a team name and a sport. It creates a sensor that follows that
+team's current or next match in any competition (league, cup, Champions
+League...), so there is no league to pick.
 
-### Why SofaScore?
+| Sensor state | Meaning |
+|---|---|
+| `PRE` | Next match is scheduled |
+| `IN` | Match in progress |
+| `POST` | Match over (kept for a few hours, then the next fixture takes over) |
+| `NOT_FOUND` | No match found for the team |
 
-- ✅ **Completely Free** - No API limits or rate restrictions
-- ✅ **All Leagues** - Track any team across all competitions without specifying leagues
-- ✅ **Global Coverage** - Better international sports coverage
-- ✅ **Live Updates** - Real-time match statistics and events
-- ✅ **No Configuration Complexity** - Simply enter team name and sport
+The sensor refreshes every 10 minutes, and every 5 seconds from 20 minutes
+before kickoff until the match ends (including a late kickoff).
 
-### Key Differences from Original
+## Installation
 
-| Feature | ESPN Version | SofaScore Version |
-|---------|--------------|-------------------|
-| Data Source | ESPN API | SofaScore API |
-| Configuration | League + Team ID | Team Name + Sport |
-| League Support | Pre-configured leagues | All leagues automatically |
-| API Limits | None (unofficial) | None (unofficial) |
-| International Coverage | Limited | Comprehensive |
-| Setup Complexity | Medium | Simple |
+Requires Home Assistant 2024.1 or later. The integration icon and logo show
+from Home Assistant 2026.3.
 
-## 🚀 Quick Start
+### HACS (recommended)
 
-### Installation
+1. HACS → ⋮ → **Custom repositories**
+2. Add `https://github.com/jpcsousa12/ha-sportsradar`, type **Integration**
+3. Install **Sports Radar** and restart Home Assistant
 
-1. Copy the `custom_components/sportsradar` folder to your Home Assistant `custom_components` directory
-2. Restart Home Assistant
-3. Go to **Configuration** → **Integrations** → **Add Integration**
-4. Search for "SportsRadar"
+### Manual
 
-### Configuration
+Copy `custom_components/sportsradar/` into `<config>/custom_components/` and
+restart Home Assistant.
 
-The setup is now much simpler:
+## Configuration
 
-1. **Team Name**: Enter the team name (e.g., "Manchester United", "Barcelona", "Lakers")
-2. **Sport**: Select from dropdown (Football/Soccer, Basketball, Tennis, etc.)
-3. **Name** (optional): Friendly name for your sensor
+**Settings → Devices & services → Add integration → Sports Radar**
 
-That's it! No need to specify leagues, conferences, or team IDs.
+- **Team**: the team name (e.g. `FC Porto`, `Real Madrid`), or its SofaScore
+  numeric id (the number at the end of the team's SofaScore URL, e.g. `3002`)
+- **Sport**: Football, Basketball, Tennis, Ice Hockey, American Football,
+  Baseball, Volleyball, Handball, Rugby, Cricket, MMA or Motorsport
+- **Name** (optional): name for the sensor
 
-## 📖 How It Works
+Football is the best covered sport. Other sports get the score and match
+state; most extra attributes below are football only.
 
-### Team Search
+## Attributes
 
-When you configure a sensor, SportsRadar will:
-1. Search SofaScore for your team name in the selected sport
-2. Cache the team ID for faster subsequent updates
-3. Automatically fetch the next upcoming game for that team
+### Match
+| Attribute | Example |
+|---|---|
+| `event_name` | `Feyenoord - FC Porto` |
+| `league`, `league_logo` | `UEFA Champions League` |
+| `season` | `UEFA Champions League 26/27` |
+| `date`, `kickoff_in` | `2026-11-24T20:00:00+00:00`, `in 2 days` |
+| `venue`, `location` | `De Kuip`, `Rotterdam, Netherlands` |
+| `quarter` | Current period: `1st half`, `Halftime`, `2nd half`, `Ended` |
+| `clock` | Live minute: `34'`, `45+2'` |
+| `last_play` | `22' Yellow card: Alberto Costa (FC Porto)` |
+| `event_url` | Link to the match on SofaScore |
 
-### Updates
+### Teams
+Each of these exists as `team_*` (the tracked team) and `opponent_*`.
 
-- **Default**: Updates every 10 minutes
-- **Live Games**: Updates every 5 seconds during active games
-- **Pre-Game**: Updates every 5 seconds within 20 minutes of kickoff
+| Attribute | Example |
+|---|---|
+| `*_name`, `*_long_name`, `*_abbr` | `FC Porto`, `FCP` |
+| `*_id`, `*_url`, `*_logo` | SofaScore id, team page and logo |
+| `*_homeaway` | `home` / `away` |
+| `*_score` | `1` |
+| `*_winner` | `true` / `false` once the match is over |
+| `*_colors` | Club colours: `["#194f93", "#ffffff"]` |
+| `*_kit_colors` | Shirt worn in this match (shirt, number, outline): `["#c2e5e9", "#0477de", "#c2e5e9"]` |
+| `*_goalkeeper_colors` | Goalkeeper shirt, same format |
+| `*_formation` | `4-3-3` |
 
-## 🏆 Supported Sports
+`*_kit_colors`, `*_goalkeeper_colors` and `*_formation` come from the line-ups,
+so they appear once SofaScore publishes them, usually about an hour before
+kickoff. Unlike `*_colors`, they reflect away and third kits.
 
-- ⚽ **Football (Soccer)** - All leagues worldwide
-- 🏀 **Basketball** - NBA, Euroleague, etc.
-- 🎾 **Tennis** - ATP, WTA, Grand Slams
-- 🏒 **Ice Hockey** - NHL, KHL, etc.
-- 🏈 **American Football** - NFL, College
-- ⚾ **Baseball** - MLB, NPB, etc.
-- 🏐 **Volleyball** - All leagues
-- 🤾 **Handball** - All leagues
-- 🏉 **Rugby** - Union and League
-- 🏏 **Cricket** - International and domestic
-- 🥊 **MMA** - UFC and others
-- 🏎️ **Motorsport** - F1, MotoGP, etc.
+### Live statistics (football)
+`possession`, `team_total_shots`, `team_shots_on_target`, `team_corners`,
+`team_yellow_cards`, `team_red_cards`, `team_xg`, and the same for
+`opponent_*`.
 
-## 📊 Available Data
+Attributes kept from ha-teamtracker for compatibility but not provided by
+SofaScore (`odds`, `tv_network`, `*_rank`, `*_record`, `*_win_probability`,
+baseball and American football fields) stay empty.
 
-The sensor provides extensive data for each game:
+## Services
 
-### Basic Information
-- Team names, logos, and colors
-- Opponent information
-- Match date and time
-- Countdown to kickoff
-- Venue and location
-
-### Live Game Data
-- Current score
-- Match status (PRE, IN, POST)
-- Clock/Time
-- Period/Quarter/Half
-
-### Statistics (when available)
-- Shots on target
-- Total shots
-- Ball possession
-- Win probability
-
-### URLs
-- Direct link to match on SofaScore
-- Team logos
-- League logos
-
-## 🔧 Advanced Usage
-
-### Service: sportsradar.call_api
-
-Dynamically change what team/sport a sensor is tracking:
+### `sportsradar.call_api`
+Point a sensor at another team without reconfiguring it:
 
 ```yaml
 service: sportsradar.call_api
-data:
-  sport_path: "football"
-  league_path: ""  # Not used in SofaScore mode
-  team_id: "Real Madrid"
+target:
   entity_id: sensor.sports_radar
+data:
+  sport_path: football
+  league_path: ""   # not used with SofaScore
+  team_id: Real Madrid
 ```
 
-### Automation Example
+### `sportsradar.diagnose`
+If the sensor is unavailable with a 403 error, this tries several connection
+settings against SofaScore from your Home Assistant host and writes the results
+to the log.
 
-Track your favorite team and get notifications:
+## Automation example
 
 ```yaml
 automation:
-  - alias: "Game Starting Soon"
+  - alias: "Goal for my team"
     trigger:
       - platform: state
-        entity_id: sensor.my_team
-        attribute: state
-        to: "PRE"
-    condition:
-      - condition: template
-        value_template: "{{ state_attr('sensor.my_team', 'kickoff_in') == 'in 30 minutes' }}"
-    action:
-      - service: notify.mobile_app
-        data:
-          message: "{{ state_attr('sensor.my_team', 'team_name') }} plays in 30 minutes!"
-
-  - alias: "Goal Scored"
-    trigger:
-      - platform: state
-        entity_id: sensor.my_team
+        entity_id: sensor.sports_radar
         attribute: team_score
     condition:
       - condition: state
-        entity_id: sensor.my_team
-        attribute: state
+        entity_id: sensor.sports_radar
         state: "IN"
     action:
       - service: notify.mobile_app
         data:
-          message: "GOAL! {{ state_attr('sensor.my_team', 'team_score') }} - {{ state_attr('sensor.my_team', 'opponent_score') }}"
+          message: >-
+            GOAL! {{ state_attr('sensor.sports_radar', 'team_name') }}
+            {{ state_attr('sensor.sports_radar', 'team_score') }}-{{ state_attr('sensor.sports_radar', 'opponent_score') }}
 ```
 
-## 🎨 Display Card
+## Troubleshooting
 
-This integration works great with the **ha-sportsradar-card** for visual display:
+- **Team not found**: try another spelling, or use the SofaScore numeric id,
+  and check the sport.
+- **Sensor unavailable / 403**: SofaScore sometimes blocks particular networks.
+  Run the `sportsradar.diagnose` service and check the log. From a clone of this
+  repository you can also test the connection on the Home Assistant host with
+  `python tests/sofascore/check_connection.py "FC Porto"` (needs `aiohttp` and
+  `arrow`).
+- **Kit colours empty**: line-ups are not out yet, or SofaScore has none for
+  that competition.
 
-```yaml
-type: custom:sportsradar-card
-entity: sensor.my_team
+## Limitations
+
+- SofaScore has no official public API. This integration uses the same
+  endpoints as their website, which can change or be blocked without notice.
+- Only one match per sensor: the one in progress, otherwise the next one.
+
+## Development
+
+```bash
+pip install -r requirements_test.txt
+python -m pytest --asyncio-mode=auto   # Home Assistant tests
+python tests/sofascore/test_logic.py    # offline SofaScore checks
+pylint $(git ls-files '*.py')
 ```
 
-## 🐛 Troubleshooting
+CI runs pytest (Python 3.11 and 3.12), pylint, hassfest and the HACS action on
+every push.
 
-### Team Not Found
+## Credits
 
-If your team isn't found:
-- Try different name variations (e.g., "Man United" vs "Manchester United")
-- Make sure you selected the correct sport
-- Check the logs for the exact search being performed
+- [ha-teamtracker](https://github.com/vasqued2/ha-teamtracker) by vasqued2, which this project is built on
+- [SofaScore](https://www.sofascore.com) for the data
 
-### No Upcoming Games
+## Disclaimer
 
-- The sensor will show "NOT_FOUND" if there are no scheduled games
-- This is normal during off-season
-- The sensor will automatically update when games are scheduled
-
-### Statistics Not Showing
-
-- Statistics are only available during live games
-- Some sports may have limited statistics
-- Check the SofaScore website to see what data is available
-
-## 📝 Known Limitations
-
-1. **Unofficial API**: SofaScore doesn't provide an official API. While this version uses proper headers and respectful request patterns, there's always a small risk of blocks or changes.
-
-2. **Historical Data**: Only shows next upcoming game, not past games (use the SofaScore API's "last event" endpoint if needed).
-
-3. **Multiple Games**: If a team has multiple games on the same day, only the next one is shown.
-
-4. **Statistics Availability**: Not all sports/leagues provide the same level of detail.
-
-## 🔒 Privacy & Ethics
-
-- This integration uses SofaScore's unofficial API
-- Requests include proper User-Agent headers
-- Rate limiting is implemented (5s for live games, 10min otherwise)
-- No personal data is collected or transmitted
-- All data requests are read-only
-
-## 🤝 Contributing
-
-Found a bug or want to add a feature?
-1. Open an issue describing the problem/feature
-2. Submit a pull request with your changes
-3. Ensure all existing functionality still works
-
-## 📜 License
-
-This project maintains the same license as the original ha-sportsradar.
-
-## 🙏 Credits
-
-- Original **ha-sportsradar** by @vasqued2
-- Original **ha-nfl** by @zacs
-- SofaScore for providing comprehensive sports data
-- Home Assistant community
-
-## ⚠️ Disclaimer
-
-This is an unofficial integration using SofaScore's API. It is not affiliated with, endorsed by, or connected to SofaScore or its parent companies. Use at your own discretion.
-
-## 📞 Support
-
-- **Issues**: GitHub Issues
-- **Questions**: GitHub Discussions
-- **Original Project**: [ha-teamtracker](https://github.com/vasqued2/ha-teamtracker)
-
----
-
-**Version**: 0.15.0-sofascore
-**Last Updated**: 2025-01-22
+Unofficial integration, not affiliated with or endorsed by SofaScore or
+Sportradar.

@@ -207,7 +207,7 @@ SERVICE_NAME_DIAGNOSE = "diagnose"
 
 # Misc
 TEAM_ID = ""
-VERSION = "v0.15.0-sofascore"
+VERSION = "v1.3.0"
 ISSUE_URL = "https://github.com/jpcsousa12/ha-sportsradar"
 DOMAIN = "sportsradar"
 ATTRIBUTION = "Data provided by SofaScore"
