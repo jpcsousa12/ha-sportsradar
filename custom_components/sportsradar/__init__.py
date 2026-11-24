@@ -447,10 +447,28 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         return data, False
 
     @staticmethod
-    def _is_finished(event) -> bool:
-        """True if the fixture is over (finished, postponed or cancelled)."""
+    def _hold_expired(event) -> bool:
+        """True if the fixture kicked off more than POST_GAME_HOLD ago."""
+        start = event.get("startTimestamp")
+        if not start:
+            return False
+        kickoff = datetime.fromtimestamp(start, tz=timezone.utc)
+        return datetime.now(timezone.utc) - kickoff > POST_GAME_HOLD
+
+    @classmethod
+    def _is_under_way(cls, event) -> bool:
+        """True if the fixture is being played right now.
+
+        "inprogress" always counts. "interrupted" and "willstart" only count
+        while the kick-off is recent: SofaScore can leave an abandoned match
+        in those states for days.
+        """
         status_type = (event.get("status", {}).get("type") or "").lower()
-        return status_type in ("finished", "canceled", "cancelled", "postponed")
+        if status_type == "inprogress":
+            return True
+        return status_type in ("interrupted", "willstart") and not cls._hold_expired(
+            event
+        )
 
     async def _async_get_tracked_event(self, sensor_name):
         """Poll the fixture we are already following.
@@ -471,20 +489,18 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
             self.sofascore_event_id = None
             return None
 
-        if self._is_finished(event):
-            # Keep the result on the sensor for a while, then move on to the
-            # next fixture.
-            start = event.get("startTimestamp")
-            if start:
-                ended_around = datetime.fromtimestamp(start, tz=timezone.utc)
-                if datetime.now(timezone.utc) - ended_around > POST_GAME_HOLD:
-                    _LOGGER.debug(
-                        "%s: Tracked event %s finished and hold expired, re-resolving",
-                        sensor_name,
-                        self.sofascore_event_id,
-                    )
-                    self.sofascore_event_id = None
-                    return None
+        # Keep a result on the sensor for a while, then move on to the next
+        # fixture. The same applies to a fixture that never started
+        # (postponed without a new date), which would otherwise be followed
+        # forever.
+        if not self._is_under_way(event) and self._hold_expired(event):
+            _LOGGER.debug(
+                "%s: Tracked event %s is over or stale, re-resolving",
+                sensor_name,
+                self.sofascore_event_id,
+            )
+            self.sofascore_event_id = None
+            return None
 
         return event
 
@@ -504,7 +520,7 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
 
         recent = await self.sofascore_api.get_team_last_event(self.sofascore_team_id)
 
-        if recent and not self._is_finished(recent):
+        if recent and self._is_under_way(recent):
             _LOGGER.info(
                 "%s: Found LIVE event (ID: %s) for team '%s'",
                 sensor_name,

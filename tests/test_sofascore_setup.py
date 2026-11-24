@@ -13,6 +13,7 @@ made.
 from datetime import timedelta
 import json
 import os
+import time
 from unittest.mock import patch
 
 import pytest
@@ -512,3 +513,53 @@ async def test_failed_updates_back_off_instead_of_polling_fast(hass, socket_enab
             p.stop()
     assert coordinator.last_update_success
     assert coordinator.update_interval == timedelta(seconds=5)
+
+
+async def test_stale_unstarted_last_event_is_not_taken_as_live(hass, socket_enabled):
+    """A never-started fixture at the end of "last events" is not a live match.
+
+    SofaScore leaves postponed-without-a-date fixtures there as notstarted;
+    treating any unfinished entry as live meant following it forever instead
+    of the real next fixture.
+    """
+    stale = dict(FIX["pre_event"])
+    stale["id"] = 999
+    stale["startTimestamp"] = int(time.time()) - 2 * 86400
+    upcoming = dict(FIX["pre_event"])
+    upcoming["startTimestamp"] = int(time.time()) + 3 * 86400
+    events = {stale["id"]: stale, upcoming["id"]: upcoming}
+
+    patches = list(_patch_api(next_event=upcoming))
+    patches += [
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_team_last_event",
+            return_value=stale,
+        ),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_event",
+            side_effect=events.get,
+        ),
+    ]
+    for p in patches:
+        p.start()
+    try:
+        entry = MockConfigEntry(
+            domain=DOMAIN, title="sports_radar", data=CONFIG_SOFASCORE
+        )
+        entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+        assert coordinator.sofascore_event_id == upcoming["id"]
+
+        # A stale fixture that is already being tracked is dropped as well.
+        coordinator.sofascore_event_id = stale["id"]
+        await coordinator.async_refresh()
+        assert coordinator.sofascore_event_id == upcoming["id"]
+    finally:
+        for p in reversed(patches):
+            p.stop()
+
+    state = hass.states.get("sensor.test_sofascore_porto")
+    assert state.state == "PRE"
+    assert str(upcoming["id"]) in state.attributes["api_message"]
