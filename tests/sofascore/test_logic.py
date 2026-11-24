@@ -432,6 +432,56 @@ async def test_all_hosts_refused_raises():
     sofascore_api._ACTIVE_BASE_INDEX = 0
 
 
+def _search_result(team_id, name, sport_name, sport_slug):
+    return {
+        "type": "team",
+        "entity": {
+            "id": team_id,
+            "name": name,
+            "slug": name.lower().replace(" ", "-"),
+            "sport": {"name": sport_name, "slug": sport_slug, "id": 0},
+        },
+    }
+
+
+async def test_team_search_filters_on_the_sport_slug():
+    print("")
+    print("team search matches SofaScore's sport slug, not its display name")
+    search = {
+        "results": [
+            _search_result(1, "Dallas Stars FC", "Football", "football"),
+            _search_result(2, "Dallas Stars", "Ice hockey", "ice-hockey"),
+            _search_result(3, "Dallas Cowboys", "American football", "american-football"),
+        ]
+    }
+    api = StubAPI({"/search/all": search})
+
+    hockey = await api.find_team_by_name("Dallas Stars", "hockey")
+    check(
+        "configured 'hockey' finds the ice hockey team",
+        hockey is not None and hockey["id"] == 2,
+        "(got %s)" % hockey,
+    )
+    nfl = await api.find_team_by_name("Dallas", "american-football")
+    check(
+        "'american-football' matches 'American football'",
+        nfl is not None and nfl["id"] == 3,
+        "(got %s)" % nfl,
+    )
+    check(
+        "search results carry the sport slug",
+        (await api.search_teams("Dallas"))[1]["sport_slug"] == "ice-hockey",
+    )
+
+    live = StubAPI({"/sport/ice-hockey/events/live": {"events": []}})
+    await live.get_team_live_event(2, "hockey")
+    check(
+        "the live feed uses SofaScore's slug for hockey",
+        live.calls == ["/sport/ice-hockey/events/live"],
+        "(called %s)" % live.calls,
+    )
+
+
 async def main():
     tests = (
         test_status_mapping,
@@ -445,6 +495,7 @@ async def main():
         test_requests_use_the_browser_cipher_order,
         test_falls_back_to_the_other_host_on_403,
         test_all_hosts_refused_raises,
+        test_team_search_filters_on_the_sport_slug,
     )
     for test in tests:
         try:

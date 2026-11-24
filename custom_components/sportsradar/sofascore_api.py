@@ -124,6 +124,19 @@ SPORT_MAP = {
 }
 
 
+# Sport values that differ from SofaScore's own slug. "hockey" is what the
+# config flow has always stored for ice hockey, so it has to keep working.
+SPORT_SLUG_ALIASES = {
+    "hockey": "ice-hockey",
+}
+
+
+def sofascore_sport_slug(sport: str | None) -> str:
+    """Return SofaScore's slug for a configured sport value."""
+    sport = (sport or "").strip().lower()
+    return SPORT_SLUG_ALIASES.get(sport, sport)
+
+
 class SofaScoreAPI:
     """Class to interact with SofaScore unofficial API"""
 
@@ -290,12 +303,14 @@ class SofaScoreAPI:
         for result in data.get("results", []):
             if result.get("type") == "team":
                 entity = result.get("entity", {})
+                sport = entity.get("sport") or {}
                 teams.append({
                     "id": entity.get("id"),
                     "name": entity.get("name"),
                     "slug": entity.get("slug"),
-                    "sport": entity.get("sport", {}).get("name"),
-                    "sport_id": entity.get("sport", {}).get("id"),
+                    "sport": sport.get("name"),
+                    "sport_slug": sport.get("slug"),
+                    "sport_id": sport.get("id"),
                     "country": entity.get("country", {}).get("name", ""),
                     "team_colors": {
                         "primary": entity.get("teamColors", {}).get("primary", "#000000"),
@@ -430,25 +445,36 @@ class SofaScoreAPI:
         if not teams:
             return None
 
-        # Try exact match first (case insensitive)
-        for team in teams:
-            if team.get("name", "").lower() == team_name.lower():
-                if sport and team.get("sport", "").lower() == sport.lower():
-                    return team
+        wanted = sofascore_sport_slug(sport)
+        name = team_name.lower()
 
-        # Try partial match
-        for team in teams:
-            if team_name.lower() in team.get("name", "").lower():
-                if sport and team.get("sport", "").lower() == sport.lower():
-                    return team
+        def same_sport(team: dict) -> bool:
+            # Compare slugs: the display name ("Ice hockey", "American
+            # football") never equals the configured value.
+            slug = team.get("sport_slug") or (team.get("sport") or "").lower().replace(
+                " ", "-"
+            )
+            return slug == wanted
 
-        # Return first team if no exact match and sport filter matches
-        for team in teams:
-            if sport and team.get("sport", "").lower() == sport.lower():
+        candidates = [team for team in teams if same_sport(team)] if wanted else teams
+
+        # Exact name first (case insensitive), then partial, then the first
+        # team of the right sport.
+        for team in candidates:
+            if (team.get("name") or "").lower() == name:
                 return team
+        for team in candidates:
+            if name in (team.get("name") or "").lower():
+                return team
+        if candidates:
+            return candidates[0]
 
-        # Return first team if no sport filter
-        return teams[0] if teams else None
+        # Nothing of that sport: keep the historical fallback of the first
+        # search result rather than reporting the team as missing.
+        _LOGGER.debug(
+            "No %s team matched '%s'; using the first search result", wanted, team_name
+        )
+        return teams[0]
 
     async def get_team_live_event(self, team_id: int, sport: str = "football") -> dict | None:
         """Get the currently in-progress event for a team, if any.
@@ -466,7 +492,9 @@ class SofaScoreAPI:
         Returns:
             Live event data dictionary or None if the team is not playing now
         """
-        data = await self._make_request(f"/sport/{sport}/events/live")
+        data = await self._make_request(
+            f"/sport/{sofascore_sport_slug(sport)}/events/live"
+        )
 
         if not data:
             return None
