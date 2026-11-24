@@ -150,6 +150,11 @@ async def async_setup_entry(
 class SportsRadarScoresSensor(CoordinatorEntity):
     """Representation of a Sensor."""
 
+    # These change on every update (every 5 s during a match). Leaving them
+    # out of the recorder lets consecutive states share one stored copy of
+    # the attributes instead of saving a new one each time.
+    _unrecorded_attributes = frozenset({"last_update", "api_message", "api_url"})
+
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, config: ConfigType) -> None:
         """Initialize the sensor."""
 

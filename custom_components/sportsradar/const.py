@@ -190,7 +190,8 @@ DEFAULT_LOGO = (
 DEFAULT_NAME = "sports_radar"
 DEFAULT_PROB = 0.0
 DEFAULT_SPORT_PATH = "football"  # Default to football/soccer
-DEFAULT_TIMEOUT = 120
+DEFAULT_TIMEOUT = 120  # seconds for a whole update
+REQUEST_TIMEOUT = 15  # seconds for one SofaScore request
 DEFAULT_LAST_UPDATE = "2022-02-02 02:02:02-05:00"
 DEFAULT_KICKOFF_IN = "{test} days"
 # How long after KICK-OFF a finished match stays on the sensor before it rolls
@@ -200,6 +201,10 @@ POST_GAME_HOLD = timedelta(hours=5)
 
 DEFAULT_REFRESH_RATE = timedelta(minutes=10)
 RAPID_REFRESH_RATE = timedelta(seconds=5)
+# While live, statistics and incidents are refreshed at most this often (in
+# seconds); the event itself is still polled at RAPID_REFRESH_RATE.
+STATISTICS_MAX_AGE = 60
+INCIDENTS_MAX_AGE = 15
 # How soon an empty statistics/incidents answer is asked for again.
 DETAIL_RETRY_SECONDS = 300
 # First retry interval after a failed update; doubles up to the default rate.

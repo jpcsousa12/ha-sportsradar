@@ -34,6 +34,9 @@ from .const import (
     DEFAULT_LOGO,
     DEFAULT_SPORT_PATH,
     DEFAULT_TIMEOUT,
+    INCIDENTS_MAX_AGE,
+    REQUEST_TIMEOUT,
+    STATISTICS_MAX_AGE,
     DETAIL_RETRY_SECONDS,
     FAILURE_BACKOFF,
     DOMAIN,
@@ -247,8 +250,10 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         # Initialize SofaScore API client
         # Use Home Assistant's shared session: it carries HA's DNS
         # resolver and SSL context, and HA closes it on shutdown.
+        # The per-request timeout is kept well below DEFAULT_TIMEOUT, the
+        # budget for the whole update, so retries and the fallback host fit.
         self.sofascore_api = SofaScoreAPI(
-            timeout=DEFAULT_TIMEOUT, session=async_get_clientsession(hass)
+            timeout=REQUEST_TIMEOUT, session=async_get_clientsession(hass)
         )
         self.sofascore_team_id = None  # Will be populated after team search
         self.sofascore_event_id = None  # Fixture currently being tracked
@@ -650,47 +655,60 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
 
         start = data.get("startTimestamp") or 0
         now = datetime.now(timezone.utc).timestamp()
+
+        # The fetches are independent, so they run concurrently.
+        fetches = {}
         if state != "PRE" or 0 <= start - now <= 2 * 3600:
-            try:
-                lineups = await self._async_get_lineups(event_id, sensor_name)
-            except Exception as error:  # pylint: disable=broad-exception-caught
-                _LOGGER.debug("%s: Could not add line-ups: %s", sensor_name, error)
+            fetches["line-ups"] = self._async_get_lineups(event_id, sensor_name)
+
+        if state in ("IN", "POST"):
+            if state == "IN":
+                # Throttled while live; a new score means a goal, so the
+                # incidents are refetched straight away to update last_play.
+                score = (
+                    (data.get("homeScore") or {}).get("current"),
+                    (data.get("awayScore") or {}).get("current"),
+                )
+                incidents_age, incidents_tag = INCIDENTS_MAX_AGE, (state, score)
+                statistics_age = STATISTICS_MAX_AGE
             else:
-                apply_lineups(values, lineups)
+                # The numbers are final once the match is over: fetch once.
+                incidents_age, incidents_tag = math.inf, state
+                statistics_age = math.inf
 
-        if state not in ("IN", "POST"):
-            return
+            fetches["incidents"] = self._async_fetch_detail(
+                "incidents",
+                event_id,
+                self.sofascore_api.get_event_incidents,
+                incidents_age,
+                incidents_tag,
+                sensor_name,
+            )
+            fetches["statistics"] = self._async_fetch_detail(
+                "statistics",
+                event_id,
+                self.sofascore_api.get_event_statistics,
+                statistics_age,
+                state,
+                sensor_name,
+            )
 
-        if state == "IN":
-            max_age, tag = 0, state
-        else:
-            # The numbers are final once the match is over: fetch them once.
-            max_age, tag = math.inf, state
+        results = await asyncio.gather(*fetches.values(), return_exceptions=True)
+        found = {}
+        for kind, result in zip(fetches, results):
+            if isinstance(result, Exception):
+                _LOGGER.debug("%s: Could not add %s: %s", sensor_name, kind, result)
+            else:
+                found[kind] = result
 
-        incidents = await self._async_fetch_detail(
-            "incidents",
-            event_id,
-            self.sofascore_api.get_event_incidents,
-            max_age,
-            tag,
-            sensor_name,
-        )
+        apply_lineups(values, found.get("line-ups"))
         apply_incidents(
             values,
-            incidents,
+            found.get("incidents"),
             (data.get("homeTeam") or {}).get("name", ""),
             (data.get("awayTeam") or {}).get("name", ""),
         )
-
-        statistics = await self._async_fetch_detail(
-            "statistics",
-            event_id,
-            self.sofascore_api.get_event_statistics,
-            max_age,
-            tag,
-            sensor_name,
-        )
-        apply_statistics(values, statistics, sensor_name)
+        apply_statistics(values, found.get("statistics"), sensor_name)
 
     async def async_update_values(self, config, hass, data, lang) -> dict:
         """Return values based on the data passed into method"""

@@ -605,3 +605,53 @@ async def test_finished_match_keeps_its_final_statistics(hass, socket_enabled):
     assert attrs["last_play"].startswith("22' Yellow card")
     assert get_statistics.call_count == 1
     assert get_incidents.call_count == 1
+
+
+async def test_live_details_are_throttled(hass, socket_enabled):
+    """While live, statistics and incidents are not fetched on every 5 s poll.
+
+    A new score refetches the incidents at once, so last_play follows goals.
+    """
+    live = FIX["live_event"]
+    patches = _patch_api(
+        live=live, event=live, stats=FIX["statistics_multi_period"], incidents=LIVE_INCIDENTS
+    )
+    mocks = [p.start() for p in patches]
+    get_event, get_statistics, get_incidents = mocks[4], mocks[5], mocks[7]
+    try:
+        entry = MockConfigEntry(
+            domain=DOMAIN, title="sports_radar", data=CONFIG_SOFASCORE
+        )
+        entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+
+        await coordinator.async_refresh()
+        await coordinator.async_refresh()
+        assert get_statistics.call_count == 1
+        assert get_incidents.call_count == 1
+
+        scored = dict(live)
+        scored["homeScore"] = {**live["homeScore"], "current": 2}
+        get_event.return_value = scored
+        await coordinator.async_refresh()
+        assert get_incidents.call_count == 2
+        assert get_statistics.call_count == 1
+    finally:
+        for p in patches:
+            p.stop()
+
+    attrs = hass.states.get("sensor.test_sofascore_porto").attributes
+    assert attrs["last_play"].startswith("22' Yellow card")
+    assert attrs["team_total_shots"] is not None
+
+
+async def test_volatile_attributes_are_not_recorded(hass, socket_enabled):
+    """last_update/api_message/api_url stay out of the recorder."""
+    # pylint: disable=import-outside-toplevel
+    from custom_components.sportsradar.sensor import SportsRadarScoresSensor
+
+    assert {"last_update", "api_message", "api_url"} <= (
+        SportsRadarScoresSensor._unrecorded_attributes  # pylint: disable=protected-access
+    )
