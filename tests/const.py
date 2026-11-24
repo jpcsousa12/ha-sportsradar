@@ -1,4 +1,5 @@
 """Constants for tests."""
+
 from unittest.mock import patch
 
 
@@ -10,47 +11,60 @@ class PlatformConfigType(dict):
         self.data = data
         self.entry_id = entry_id
 
+
 # Create the mock object
 PLATFORM_TEST_DATA = [
-    [PlatformConfigType(
-        platform='sportsradar',
-        league_id="BAD",
-        team_id="MIA",
-        name="test_tt_all_test03",
-        conference_id="9999",
-        timeout=1200,
-        entry_id={},
-        data={}
-    ), False],
-    [PlatformConfigType(
-        platform='sportsradar',
-        league_id="XXX",
-        team_id="MIA",
-        name="test_tt_all_test04",
-        conference_id="9999",
-        timeout=1200,
-        entry_id={},
-        data={}
-    ), False],
-    [PlatformConfigType(
-        platform='sportsradar',
-        league_id="MLB",
-        team_id="MIA",
-        name="test_tt_all_test02",
-        conference_id="9999",
-        timeout=1200,
-        entry_id={},
-        data={}
-    ), True],
-    [PlatformConfigType(
-        platform='sportsradar',
-        league_id="MLB",
-        team_id="MIA",
-        name="test_tt_all_test01",
-        conference_id="9999",
-        entry_id={},
-        data={}
-    ), True],
+    [
+        PlatformConfigType(
+            platform="sportsradar",
+            league_id="BAD",
+            team_id="MIA",
+            name="test_tt_all_test03",
+            conference_id="9999",
+            timeout=1200,
+            entry_id={},
+            data={},
+        ),
+        False,
+    ],
+    [
+        PlatformConfigType(
+            platform="sportsradar",
+            league_id="XXX",
+            team_id="MIA",
+            name="test_tt_all_test04",
+            conference_id="9999",
+            timeout=1200,
+            entry_id={},
+            data={},
+        ),
+        False,
+    ],
+    [
+        PlatformConfigType(
+            platform="sportsradar",
+            league_id="MLB",
+            team_id="MIA",
+            name="test_tt_all_test02",
+            conference_id="9999",
+            timeout=1200,
+            entry_id={},
+            data={},
+        ),
+        True,
+    ],
+    [
+        PlatformConfigType(
+            platform="sportsradar",
+            league_id="MLB",
+            team_id="MIA",
+            name="test_tt_all_test01",
+            conference_id="9999",
+            entry_id={},
+            data={},
+        ),
+        True,
+    ],
 ]
 
 # SofaScore-shaped config entry. CONF_TEAM_ID holds a team NAME here, and the
@@ -82,7 +96,9 @@ def patch_sofascore(team=None, live=None, next_event=None, event=None, stats=Non
         "get_event_statistics": stats,
     }
     patchers = [
-        patch("custom_components.sportsradar.SofaScoreAPI.%s" % name, return_value=value)
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.%s" % name, return_value=value
+        )
         for name, value in targets.items()
     ]
     for patcher in patchers:

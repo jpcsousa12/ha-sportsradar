@@ -200,9 +200,7 @@ async def test_numeric_team_id_skips_the_search_endpoint(hass, socket_enabled):
             "custom_components.sportsradar.SofaScoreAPI.find_team_by_name",
             side_effect=_must_not_be_called,
         ):
-            entry = MockConfigEntry(
-                domain=DOMAIN, title="team_tracker", data=config
-            )
+            entry = MockConfigEntry(domain=DOMAIN, title="team_tracker", data=config)
             entry.add_to_hass(hass)
             assert await hass.config_entries.async_setup(entry.entry_id)
             await hass.async_block_till_done()
@@ -240,7 +238,9 @@ async def test_live_match_found_without_the_live_feed(hass, socket_enabled):
             "custom_components.sportsradar.SofaScoreAPI.get_team_next_event",
             return_value=None,
         ),
-        patch("custom_components.sportsradar.SofaScoreAPI.get_event", return_value=live),
+        patch(
+            "custom_components.sportsradar.SofaScoreAPI.get_event", return_value=live
+        ),
         patch(
             "custom_components.sportsradar.SofaScoreAPI.get_event_statistics",
             return_value=None,
@@ -297,7 +297,9 @@ async def test_blocked_live_feed_does_not_fail_the_update(hass, socket_enabled):
         ),
         patch(
             "custom_components.sportsradar.SofaScoreAPI.get_team_live_event",
-            side_effect=SofaScoreApiError("403 Forbidden for /sport/football/events/live"),
+            side_effect=SofaScoreApiError(
+                "403 Forbidden for /sport/football/events/live"
+            ),
         ),
     ]
     for p in patches:
@@ -381,12 +383,20 @@ LIVE_LINEUPS = {
     "home": {
         "formation": "4-3-3",
         "playerColor": {"primary": "ff0000", "number": "000000", "outline": "ff0000"},
-        "goalkeeperColor": {"primary": "8efd71", "number": "0d0d0d", "outline": "8efd71"},
+        "goalkeeperColor": {
+            "primary": "8efd71",
+            "number": "0d0d0d",
+            "outline": "8efd71",
+        },
     },
     "away": {
         "formation": "4-2-3-1",
         "playerColor": {"primary": "c2e5e9", "number": "0477de", "outline": "c2e5e9"},
-        "goalkeeperColor": {"primary": "eca269", "number": "12244d", "outline": "eca269"},
+        "goalkeeperColor": {
+            "primary": "eca269",
+            "number": "12244d",
+            "outline": "eca269",
+        },
     },
 }
 
@@ -614,7 +624,10 @@ async def test_live_details_are_throttled(hass, socket_enabled):
     """
     live = FIX["live_event"]
     patches = _patch_api(
-        live=live, event=live, stats=FIX["statistics_multi_period"], incidents=LIVE_INCIDENTS
+        live=live,
+        event=live,
+        stats=FIX["statistics_multi_period"],
+        incidents=LIVE_INCIDENTS,
     )
     mocks = [p.start() for p in patches]
     get_event, get_statistics, get_incidents = mocks[4], mocks[5], mocks[7]

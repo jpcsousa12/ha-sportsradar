@@ -1,4 +1,4 @@
-""" Test SportsRadar Sensor """
+"""Test SportsRadar Sensor"""
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -10,16 +10,16 @@ from tests.const import CONFIG_DATA_SOFASCORE, PLATFORM_TEST_DATA, patch_sofasco
 
 @pytest.fixture(autouse=False)
 def expected_lingering_timers() -> bool:
-    """"  Temporary ability to bypass test failures due to lingering timers.
-        Parametrize to True to bypass the pytest failure.
-        @pytest.mark.parametrize("expected_lingering_timers", [True])
-        This should be removed when all lingering timers have been cleaned up.
+    """ "  Temporary ability to bypass test failures due to lingering timers.
+    Parametrize to True to bypass the pytest failure.
+    @pytest.mark.parametrize("expected_lingering_timers", [True])
+    This should be removed when all lingering timers have been cleaned up.
     """
     return False
 
 
 async def test_sensor(hass, mocker):
-    """ test sensor """
+    """test sensor"""
 
     patchers = patch_sofascore()
     try:
@@ -44,9 +44,12 @@ async def test_sensor(hass, mocker):
 async def test_setup_platform(hass):
     """test platform setup"""
 
-# Mock implementation of async_add_entities callback
+    # Mock implementation of async_add_entities callback
     entity_list = []
-    async def mock_async_add_entities_callback(entities: list[Any], update_before_add: bool = False) -> None:
+
+    async def mock_async_add_entities_callback(
+        entities: list[Any], update_before_add: bool = False
+    ) -> None:
         """Mock implementation of the async_add_entities callback."""
         # Simulate async_add_entities callback behavior
         entity_list.extend(entities)

@@ -124,7 +124,9 @@ async def test_live_detection():
     )
 
     miss = await api.get_team_live_event(PORTO, "football")
-    check("returns None for a team that is not playing", miss is None, "(got %s)" % miss)
+    check(
+        "returns None for a team that is not playing", miss is None, "(got %s)" % miss
+    )
 
     away = await api.get_team_live_event(24259, "football")
     check(
@@ -151,7 +153,10 @@ async def test_single_event_fetch():
     )
 
     missing = StubAPI({})
-    check("returns None when the event is gone (404)", await missing.get_event(999) is None)
+    check(
+        "returns None when the event is gone (404)",
+        await missing.get_event(999) is None,
+    )
 
 
 async def test_last_event_ordering():
@@ -197,8 +202,14 @@ async def test_retry_and_backoff():
         api._get_session = lambda: asyncio.sleep(0, result=session)
 
         result = await api._make_request("/retry-me")
-        check("recovers after 429 then 500", result == {"ok": True}, "(got %s)" % result)
-        check("made exactly 3 attempts", session.attempts == 3, "(got %s)" % session.attempts)
+        check(
+            "recovers after 429 then 500", result == {"ok": True}, "(got %s)" % result
+        )
+        check(
+            "made exactly 3 attempts",
+            session.attempts == 3,
+            "(got %s)" % session.attempts,
+        )
 
         # Transient failures are retried per host, and there are two hosts.
         api2 = SofaScoreAPI()
@@ -382,18 +393,25 @@ async def test_falls_back_to_the_other_host_on_403():
     api._get_session = lambda: asyncio.sleep(0, result=session)
 
     result = await api._make_request("/team/3002/events/last/0")
-    check("a blocked host falls back to the other", result == {"ok": True},
-          "(got %s)" % result)
-    check("the second host was actually tried",
-          any("api.sofascore.app" in u for u in session.urls),
-          "(tried %s)" % session.urls)
+    check(
+        "a blocked host falls back to the other",
+        result == {"ok": True},
+        "(got %s)" % result,
+    )
+    check(
+        "the second host was actually tried",
+        any("api.sofascore.app" in u for u in session.urls),
+        "(tried %s)" % session.urls,
+    )
 
     # The working host should now be tried first.
     session.urls.clear()
     await api._make_request("/team/3002/events/next/0")
-    check("the working host is remembered",
-          "api.sofascore.app" in session.urls[0],
-          "(first try was %s)" % session.urls[0])
+    check(
+        "the working host is remembered",
+        "api.sofascore.app" in session.urls[0],
+        "(first try was %s)" % session.urls[0],
+    )
 
     sofascore_api._ACTIVE_BASE_INDEX = 0
 
@@ -426,9 +444,11 @@ async def test_all_hosts_refused_raises():
         check("raises when no host accepts the client", False)
     except SofaScoreApiError as error:
         check("raises when no host accepts the client", True)
-        check("the message names both hosts",
-              "api.sofascore.com" in str(error) and "api.sofascore.app" in str(error),
-              "(got %s)" % error)
+        check(
+            "the message names both hosts",
+            "api.sofascore.com" in str(error) and "api.sofascore.app" in str(error),
+            "(got %s)" % error,
+        )
 
     sofascore_api._ACTIVE_BASE_INDEX = 0
 
@@ -452,7 +472,9 @@ async def test_team_search_filters_on_the_sport_slug():
         "results": [
             _search_result(1, "Dallas Stars FC", "Football", "football"),
             _search_result(2, "Dallas Stars", "Ice hockey", "ice-hockey"),
-            _search_result(3, "Dallas Cowboys", "American football", "american-football"),
+            _search_result(
+                3, "Dallas Cowboys", "American football", "american-football"
+            ),
         ]
     }
     api = StubAPI({"/search/all": search})
@@ -560,4 +582,3 @@ async def main():
 
 if __name__ == "__main__":
     sys.exit(asyncio.run(main()))
-

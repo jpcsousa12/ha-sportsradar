@@ -1,4 +1,5 @@
 """Test for config flow"""
+
 from unittest.mock import patch
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -56,7 +57,6 @@ async def test_user_form(
         "custom_components.sportsradar.async_setup_entry",
         return_value=True,
     ) as mock_setup_entry:
-
         result2 = await hass.config_entries.flow.async_configure(
             result["flow_id"], input
         )
@@ -72,7 +72,7 @@ async def test_user_form(
 async def test_options_flow_init(
     hass,
 ):
-    """ Test config flow options """
+    """Test config flow options"""
 
     patchers = patch_sofascore()
     try:

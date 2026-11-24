@@ -116,10 +116,16 @@ def build_icon(size):
         )
 
     # Cross hairs
-    draw.line([(cx, cy - radius * 0.88), (cx, cy + radius * 0.88)],
-              fill=(47, 191, 135, 70), width=ring_w)
-    draw.line([(cx - radius * 0.88, cy), (cx + radius * 0.88, cy)],
-              fill=(47, 191, 135, 70), width=ring_w)
+    draw.line(
+        [(cx, cy - radius * 0.88), (cx, cy + radius * 0.88)],
+        fill=(47, 191, 135, 70),
+        width=ring_w,
+    )
+    draw.line(
+        [(cx - radius * 0.88, cy), (cx + radius * 0.88, cy)],
+        fill=(47, 191, 135, 70),
+        width=ring_w,
+    )
 
     # Sweep: wedges of falling opacity behind the leading edge
     sweep = Image.new("RGBA", (s, s), (0, 0, 0, 0))
@@ -220,8 +226,10 @@ def main():
     for name, image in outputs.items():
         path = os.path.join(OUT_DIR, name)
         image.save(path, "PNG", optimize=True)
-        print("  %-14s %sx%s  %d bytes" % (
-            name, image.width, image.height, os.path.getsize(path)))
+        print(
+            "  %-14s %sx%s  %d bytes"
+            % (name, image.width, image.height, os.path.getsize(path))
+        )
 
     print("")
     print("Written to %s" % OUT_DIR)

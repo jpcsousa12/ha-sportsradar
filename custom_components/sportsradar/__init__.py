@@ -211,9 +211,13 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             updated_config.update(LEAGUE_MAP.get(league_id, {}))
 
         if updated_config != entry.data:
-            hass.config_entries.async_update_entry(entry, data=updated_config, version=3)
+            hass.config_entries.async_update_entry(
+                entry, data=updated_config, version=3
+            )
 
-        _LOGGER.debug("%s: Migration to version %s complete", sensor_name, entry.version)
+        _LOGGER.debug(
+            "%s: Migration to version %s complete", sensor_name, entry.version
+        )
 
     return True
 
@@ -250,7 +254,9 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         # kind -> (event_id, fetched_at, data, tag); see _async_fetch_detail
         self._detail_cache = {}
 
-        super().__init__(hass, _LOGGER, name=self.name, update_interval=DEFAULT_REFRESH_RATE)
+        super().__init__(
+            hass, _LOGGER, name=self.name, update_interval=DEFAULT_REFRESH_RATE
+        )
         _LOGGER.debug(
             "%s: Using default refresh rate (%s)", self.name, self.update_interval
         )
@@ -308,7 +314,9 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.debug("%s: Update failure details", self.name, exc_info=True)
             raise UpdateFailed(error) from error
 
-        wanted = RAPID_REFRESH_RATE if data["private_fast_refresh"] else DEFAULT_REFRESH_RATE
+        wanted = (
+            RAPID_REFRESH_RATE if data["private_fast_refresh"] else DEFAULT_REFRESH_RATE
+        )
         if self.update_interval != wanted:
             self.update_interval = wanted
             _LOGGER.debug("%s: Refresh rate is now %s", self.name, self.update_interval)
@@ -346,7 +354,9 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
             # Check if we have cached team ID
             cache_key = f"{team_name}:{sport}"
             if cache_key in SportsRadarDataUpdateCoordinator.team_cache:
-                self.sofascore_team_id = SportsRadarDataUpdateCoordinator.team_cache[cache_key]
+                self.sofascore_team_id = SportsRadarDataUpdateCoordinator.team_cache[
+                    cache_key
+                ]
                 _LOGGER.debug(
                     "%s: Using cached team ID %s for '%s'",
                     sensor_name,
@@ -380,7 +390,9 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
 
                 if team_data:
                     self.sofascore_team_id = team_data.get("id")
-                    SportsRadarDataUpdateCoordinator.team_cache[cache_key] = self.sofascore_team_id
+                    SportsRadarDataUpdateCoordinator.team_cache[cache_key] = (
+                        self.sofascore_team_id
+                    )
                     _LOGGER.info(
                         "%s: Found team '%s' with ID %s",
                         sensor_name,
@@ -407,7 +419,9 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
                 data = await self._async_get_tracked_event(sensor_name)
 
                 if data is None:
-                    data = await self._async_resolve_event(sensor_name, team_name, sport)
+                    data = await self._async_resolve_event(
+                        sensor_name, team_name, sport
+                    )
 
                 self.api_url = f"SofaScore API - Team ID: {self.sofascore_team_id}"
 
@@ -585,7 +599,9 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         cache[event_id] = (data, now)
         return data
 
-    async def _async_fetch_detail(self, kind, event_id, fetch, max_age, tag, sensor_name):
+    async def _async_fetch_detail(
+        self, kind, event_id, fetch, max_age, tag, sensor_name
+    ):
         """Fetch an optional per-event resource, reusing a fresh cached copy.
 
         One copy per kind is kept, for the current fixture only. The copy is
@@ -697,7 +713,9 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
         values["league"] = ""
         values["league_path"] = ""
         values["league_logo"] = ""
-        values["team_abbr"] = team_name[:3].upper() if len(team_name) >= 3 else team_name.upper()
+        values["team_abbr"] = (
+            team_name[:3].upper() if len(team_name) >= 3 else team_name.upper()
+        )
         values["state"] = "NOT_FOUND"
         values["last_update"] = arrow.now().format(arrow.FORMAT_W3C)
         values["private_fast_refresh"] = False

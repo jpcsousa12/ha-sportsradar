@@ -1,4 +1,5 @@
 """Fixtures for tests"""
+
 import sys
 
 import pytest
@@ -43,7 +44,7 @@ _ha_aiohttp_client.AsyncResolver = aiohttp.resolver.ThreadedResolver
 
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
-    """ enable custom integrations """
+    """enable custom integrations"""
     yield
 
 

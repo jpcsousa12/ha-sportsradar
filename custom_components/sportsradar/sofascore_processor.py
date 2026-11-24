@@ -11,6 +11,7 @@ try:
     from .sofascore_api import SofaScoreAPI
 except ImportError:
     import sofascore_api
+
     SofaScoreAPI = sofascore_api.SofaScoreAPI
 
 _LOGGER = logging.getLogger(__name__)
@@ -217,7 +218,9 @@ async def async_process_sofascore_event(
         values["opponent_id"] = str(opp_team.get("id", ""))
         values["opponent_name"] = opp_team.get("name", "")
         values["opponent_abbr"] = _abbr(opp_team)
-        values["opponent_long_name"] = opp_team.get("fullName") or opp_team.get("name", "")
+        values["opponent_long_name"] = opp_team.get("fullName") or opp_team.get(
+            "name", ""
+        )
         values["opponent_logo"] = _team_logo(opp_team)
         values["opponent_url"] = _team_url(opp_team, sport_name)
         values["opponent_homeaway"] = "away" if is_home else "home"
@@ -231,7 +234,9 @@ async def async_process_sofascore_event(
         home_score = event.get("homeScore", {})
         away_score = event.get("awayScore", {})
 
-        our_score, opp_score = (home_score, away_score) if is_home else (away_score, home_score)
+        our_score, opp_score = (
+            (home_score, away_score) if is_home else (away_score, home_score)
+        )
         values["team_score"] = _score(our_score)
         values["opponent_score"] = _score(opp_score)
 
@@ -256,7 +261,9 @@ async def async_process_sofascore_event(
                 elif hours > 0:
                     values["kickoff_in"] = f"in {hours} hour{'s' if hours != 1 else ''}"
                 elif minutes > 0:
-                    values["kickoff_in"] = f"in {minutes} minute{'s' if minutes != 1 else ''}"
+                    values["kickoff_in"] = (
+                        f"in {minutes} minute{'s' if minutes != 1 else ''}"
+                    )
                 else:
                     values["kickoff_in"] = "Starting soon"
             else:
@@ -267,7 +274,9 @@ async def async_process_sofascore_event(
 
         # Venue
         venue = event.get("venue") or {}
-        values["venue"] = venue.get("name") or (venue.get("stadium") or {}).get("name", "")
+        values["venue"] = venue.get("name") or (venue.get("stadium") or {}).get(
+            "name", ""
+        )
         venue_city = (venue.get("city") or {}).get("name", "")
         venue_country = (venue.get("country") or {}).get("name", "")
         if venue_city and venue_country:
@@ -358,7 +367,9 @@ async def async_process_sofascore_event(
         values["opponent_timeouts"] = None
 
         # Success message
-        values["api_message"] = f"Event data retrieved successfully (Event ID: {event_id})"
+        values["api_message"] = (
+            f"Event data retrieved successfully (Event ID: {event_id})"
+        )
 
         _LOGGER.debug(
             "%s: Processed SofaScore event %s - %s vs %s (%s)",
@@ -519,11 +530,15 @@ def apply_lineups(values: dict[str, Any], lineups: dict | None) -> dict[str, Any
         gk = side.get("goalkeeperColor") or {}
         if kit.get("primary"):
             values[f"{prefix}_kit_colors"] = [
-                _hex(kit.get("primary")), _hex(kit.get("number")), _hex(kit.get("outline"))
+                _hex(kit.get("primary")),
+                _hex(kit.get("number")),
+                _hex(kit.get("outline")),
             ]
         if gk.get("primary"):
             values[f"{prefix}_goalkeeper_colors"] = [
-                _hex(gk.get("primary")), _hex(gk.get("number")), _hex(gk.get("outline"))
+                _hex(gk.get("primary")),
+                _hex(gk.get("number")),
+                _hex(gk.get("outline")),
             ]
         if side.get("formation"):
             values[f"{prefix}_formation"] = side["formation"]
@@ -547,7 +562,9 @@ def describe_incident(incident: dict, home_name: str, away_name: str) -> str | N
     cls = incident.get("incidentClass") or ""
     team = home_name if incident.get("isHome") else away_name
     minute = _minute(incident)
-    player = incident.get("playerName") or (incident.get("player") or {}).get("name", "")
+    player = incident.get("playerName") or (incident.get("player") or {}).get(
+        "name", ""
+    )
 
     if kind == "goal":
         score = f"{incident.get('homeScore', '')}-{incident.get('awayScore', '')}"
@@ -556,7 +573,11 @@ def describe_incident(incident: dict, home_name: str, away_name: str) -> str | N
         label = "Penalty goal" if cls == "penalty" else "Goal"
         return f"{minute} {label}: {player} ({team}) {score}"
     if kind == "card":
-        label = {"yellow": "Yellow card", "red": "Red card", "yellowRed": "Second yellow"}.get(cls, "Card")
+        label = {
+            "yellow": "Yellow card",
+            "red": "Red card",
+            "yellowRed": "Second yellow",
+        }.get(cls, "Card")
         return f"{minute} {label}: {player} ({team})"
     if kind == "substitution":
         pin = (incident.get("playerIn") or {}).get("name", "")
@@ -569,7 +590,9 @@ def describe_incident(incident: dict, home_name: str, away_name: str) -> str | N
     return None  # period markers, injury time announcements
 
 
-def apply_incidents(values: dict[str, Any], incidents: dict | None, home_name: str, away_name: str) -> dict[str, Any]:
+def apply_incidents(
+    values: dict[str, Any], incidents: dict | None, home_name: str, away_name: str
+) -> dict[str, Any]:
     """Set last_play to the newest goal/card/substitution/VAR incident."""
     if not incidents:
         return values

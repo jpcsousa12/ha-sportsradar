@@ -41,9 +41,9 @@ def _get_schema(
     return vol.Schema(
         {
             vol.Required(CONF_TEAM_ID, default=_get_default(CONF_TEAM_ID)): cv.string,
-            vol.Required(CONF_SPORT_PATH, default=_get_default(CONF_SPORT_PATH)): vol.In(
-                dict(SPORT_OPTIONS)
-            ),
+            vol.Required(
+                CONF_SPORT_PATH, default=_get_default(CONF_SPORT_PATH)
+            ): vol.In(dict(SPORT_OPTIONS)),
             vol.Optional(CONF_NAME, default=_get_default(CONF_NAME)): cv.string,
         }
     )
@@ -71,9 +71,7 @@ class SportsRadarScoresFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             user_input[CONF_CONFERENCE_ID] = ""
 
             self._data.update(user_input)
-            return self.async_create_entry(
-                title=self._data[CONF_NAME], data=self._data
-            )
+            return self.async_create_entry(title=self._data[CONF_NAME], data=self._data)
 
         return await self._show_config_form(user_input)
 

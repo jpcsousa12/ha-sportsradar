@@ -159,7 +159,9 @@ class SofaScoreAPI:
             await self.session.close()
         self.session = None
 
-    async def _make_request(self, endpoint: str, params: dict | None = None) -> dict | None:
+    async def _make_request(
+        self, endpoint: str, params: dict | None = None
+    ) -> dict | None:
         """Make a request to the SofaScore API.
 
         Tries each API host in turn. A 403 means this client is refused by
@@ -186,7 +188,9 @@ class SofaScoreAPI:
 
         # Start with the host that worked last time.
         order = [
-            SOFASCORE_API_BASES[(_ACTIVE_BASE_INDEX + offset) % len(SOFASCORE_API_BASES)]
+            SOFASCORE_API_BASES[
+                (_ACTIVE_BASE_INDEX + offset) % len(SOFASCORE_API_BASES)
+            ]
             for offset in range(len(SOFASCORE_API_BASES))
         ]
 
@@ -243,7 +247,11 @@ class SofaScoreAPI:
                     _LOGGER.debug(
                         "SofaScore request to %s failed (%s), retrying in %.1fs "
                         "(attempt %d/%d)",
-                        url, last_error, delay, attempt, MAX_ATTEMPTS,
+                        url,
+                        last_error,
+                        delay,
+                        attempt,
+                        MAX_ATTEMPTS,
                     )
                     await asyncio.sleep(delay)
 
@@ -288,26 +296,32 @@ class SofaScoreAPI:
             if result.get("type") == "team":
                 entity = result.get("entity", {})
                 sport = entity.get("sport") or {}
-                teams.append({
-                    "id": entity.get("id"),
-                    "name": entity.get("name"),
-                    "slug": entity.get("slug"),
-                    "sport": sport.get("name"),
-                    "sport_slug": sport.get("slug"),
-                    "sport_id": sport.get("id"),
-                    "country": entity.get("country", {}).get("name", ""),
-                    "team_colors": {
-                        "primary": entity.get("teamColors", {}).get("primary", "#000000"),
-                        "secondary": entity.get("teamColors", {}).get("secondary", "#FFFFFF"),
-                    },
-                    # Same image host as the sensor's logos: the api.* hosts
-                    # refuse most browsers.
-                    "logo": (
-                        f"https://img.sofascore.com/api/v1/team/{entity['id']}/image"
-                        if entity.get("id")
-                        else None
-                    ),
-                })
+                teams.append(
+                    {
+                        "id": entity.get("id"),
+                        "name": entity.get("name"),
+                        "slug": entity.get("slug"),
+                        "sport": sport.get("name"),
+                        "sport_slug": sport.get("slug"),
+                        "sport_id": sport.get("id"),
+                        "country": entity.get("country", {}).get("name", ""),
+                        "team_colors": {
+                            "primary": entity.get("teamColors", {}).get(
+                                "primary", "#000000"
+                            ),
+                            "secondary": entity.get("teamColors", {}).get(
+                                "secondary", "#FFFFFF"
+                            ),
+                        },
+                        # Same image host as the sensor's logos: the api.* hosts
+                        # refuse most browsers.
+                        "logo": (
+                            f"https://img.sofascore.com/api/v1/team/{entity['id']}/image"
+                            if entity.get("id")
+                            else None
+                        ),
+                    }
+                )
 
         _LOGGER.debug("Found %d teams for query '%s'", len(teams), query)
         return teams
@@ -407,7 +421,9 @@ class SofaScoreAPI:
 
         return await self._make_request(endpoint)
 
-    async def find_team_by_name(self, team_name: str, sport: str = "football") -> dict | None:
+    async def find_team_by_name(
+        self, team_name: str, sport: str = "football"
+    ) -> dict | None:
         """Find a specific team by name and sport.
 
         Args:
@@ -453,7 +469,9 @@ class SofaScoreAPI:
         )
         return teams[0]
 
-    async def get_team_live_event(self, team_id: int, sport: str = "football") -> dict | None:
+    async def get_team_live_event(
+        self, team_id: int, sport: str = "football"
+    ) -> dict | None:
         """Get the currently in-progress event for a team, if any.
 
         Uses the live feed for the sport, which only contains matches that are
@@ -480,7 +498,9 @@ class SofaScoreAPI:
             home_id = event.get("homeTeam", {}).get("id")
             away_id = event.get("awayTeam", {}).get("id")
             if team_id in (home_id, away_id):
-                _LOGGER.debug("Found live event for team %s: %s", team_id, event.get("id"))
+                _LOGGER.debug(
+                    "Found live event for team %s: %s", team_id, event.get("id")
+                )
                 return event
 
         return None
@@ -564,8 +584,6 @@ async def async_diagnose_403(probe_path: str = "/team/3002/events/last/0") -> li
                         results.append((full_label, response.status))
             except Exception as error:  # pylint: disable=broad-exception-caught
                 # Diagnostics: every failure mode is a result worth reporting.
-                results.append(
-                    (full_label, f"{type(error).__name__}: {error}")
-                )
+                results.append((full_label, f"{type(error).__name__}: {error}"))
 
     return results

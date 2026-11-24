@@ -69,9 +69,7 @@ def expected_lingering_timers() -> bool:
 
 async def test_setup_entry(hass, socket_enabled):
     """The entry sets up and produces one sensor showing the next fixture."""
-    patches = _api_patches(
-        PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"]
-    )
+    patches = _api_patches(PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"])
     for p in patches:
         p.start()
     try:
@@ -99,9 +97,7 @@ async def test_call_api_service_switches_team(hass, socket_enabled):
     This also covers the cached fixture being dropped on reconfigure: without
     that, the sensor would keep showing the previous team's match.
     """
-    patches = _api_patches(
-        PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"]
-    )
+    patches = _api_patches(PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"])
     for p in patches:
         p.start()
     try:
@@ -145,9 +141,7 @@ async def test_call_api_service_switches_team(hass, socket_enabled):
 
 async def test_unload_entry(hass, socket_enabled):
     """The entry unloads and removes its sensor."""
-    patches = _api_patches(
-        PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"]
-    )
+    patches = _api_patches(PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"])
     for p in patches:
         p.start()
     try:
@@ -178,9 +172,7 @@ async def test_call_api_accepts_a_single_entity_id_string(hass, socket_enabled):
 
     league_path is also optional now: SofaScore does not use it.
     """
-    patches = _api_patches(
-        PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"]
-    )
+    patches = _api_patches(PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"])
     for p in patches:
         p.start()
     try:
@@ -216,9 +208,7 @@ async def test_call_api_accepts_a_single_entity_id_string(hass, socket_enabled):
 
 async def test_call_api_requires_a_team(hass, socket_enabled):
     """The service schema rejects a call without team_id."""
-    patches = _api_patches(
-        PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"]
-    )
+    patches = _api_patches(PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"])
     for p in patches:
         p.start()
     try:
@@ -244,9 +234,7 @@ async def test_call_api_requires_a_team(hass, socket_enabled):
 
 async def test_services_survive_unloading_one_of_two_entries(hass, socket_enabled):
     """Services are registered once for the integration, not per entry."""
-    patches = _api_patches(
-        PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"]
-    )
+    patches = _api_patches(PORTO, next_event=FIX["pre_event"], event=FIX["pre_event"])
     for p in patches:
         p.start()
     try:

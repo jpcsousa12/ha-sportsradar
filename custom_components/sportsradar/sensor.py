@@ -73,8 +73,13 @@ async def async_setup_platform(
     try:
         vol.In(league_ids)(config[CONF_LEAGUE_ID])
     except vol.Invalid:
-        _LOGGER.warning("%s: `league_id` must be valid (one of %s)", sensor_name, league_ids)
-        _LOGGER.error("%s: Support for invalid `league_id` in YAML was deprecated in v0.7.6.  Correct config prior to next upgrade.", sensor_name)
+        _LOGGER.warning(
+            "%s: `league_id` must be valid (one of %s)", sensor_name, league_ids
+        )
+        _LOGGER.error(
+            "%s: Support for invalid `league_id` in YAML was deprecated in v0.7.6.  Correct config prior to next upgrade.",
+            sensor_name,
+        )
         async_create(
             hass,
             f"{sensor_name} Error: `league_id` must be valid (one of {league_ids})",
@@ -155,7 +160,9 @@ class SportsRadarScoresSensor(CoordinatorEntity):
     # the attributes instead of saving a new one each time.
     _unrecorded_attributes = frozenset({"last_update", "api_message", "api_url"})
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, config: ConfigType) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, config: ConfigType
+    ) -> None:
         """Initialize the sensor."""
         if entry is not None:  # GUI setup, use entry_id as index
             entry_id = entry.entry_id
@@ -251,7 +258,9 @@ class SportsRadarScoresSensor(CoordinatorEntity):
         attrs["opponent_id"] = self.coordinator.data["opponent_id"]
         attrs["opponent_record"] = self.coordinator.data["opponent_record"]
         attrs["opponent_rank"] = self.coordinator.data["opponent_rank"]
-        attrs["opponent_conference_id"] = self.coordinator.data["opponent_conference_id"]
+        attrs["opponent_conference_id"] = self.coordinator.data[
+            "opponent_conference_id"
+        ]
         attrs["opponent_homeaway"] = self.coordinator.data["opponent_homeaway"]
         attrs["opponent_logo"] = self.coordinator.data["opponent_logo"]
         attrs["opponent_url"] = self.coordinator.data["opponent_url"]
@@ -260,9 +269,7 @@ class SportsRadarScoresSensor(CoordinatorEntity):
         attrs["opponent_win_probability"] = self.coordinator.data[
             "opponent_win_probability"
         ]
-        attrs["opponent_winner"] = self.coordinator.data[
-            "opponent_winner"
-        ]
+        attrs["opponent_winner"] = self.coordinator.data["opponent_winner"]
         attrs["opponent_timeouts"] = self.coordinator.data["opponent_timeouts"]
 
         attrs["quarter"] = self.coordinator.data["quarter"]
@@ -287,14 +294,20 @@ class SportsRadarScoresSensor(CoordinatorEntity):
 
         attrs["team_kit_colors"] = self.coordinator.data.get("team_kit_colors")
         attrs["opponent_kit_colors"] = self.coordinator.data.get("opponent_kit_colors")
-        attrs["team_goalkeeper_colors"] = self.coordinator.data.get("team_goalkeeper_colors")
-        attrs["opponent_goalkeeper_colors"] = self.coordinator.data.get("opponent_goalkeeper_colors")
+        attrs["team_goalkeeper_colors"] = self.coordinator.data.get(
+            "team_goalkeeper_colors"
+        )
+        attrs["opponent_goalkeeper_colors"] = self.coordinator.data.get(
+            "opponent_goalkeeper_colors"
+        )
         attrs["team_formation"] = self.coordinator.data.get("team_formation")
         attrs["opponent_formation"] = self.coordinator.data.get("opponent_formation")
         attrs["team_corners"] = self.coordinator.data.get("team_corners")
         attrs["opponent_corners"] = self.coordinator.data.get("opponent_corners")
         attrs["team_yellow_cards"] = self.coordinator.data.get("team_yellow_cards")
-        attrs["opponent_yellow_cards"] = self.coordinator.data.get("opponent_yellow_cards")
+        attrs["opponent_yellow_cards"] = self.coordinator.data.get(
+            "opponent_yellow_cards"
+        )
         attrs["team_red_cards"] = self.coordinator.data.get("team_red_cards")
         attrs["opponent_red_cards"] = self.coordinator.data.get("opponent_red_cards")
         attrs["team_xg"] = self.coordinator.data.get("team_xg")

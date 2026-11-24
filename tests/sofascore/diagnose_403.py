@@ -78,8 +78,10 @@ async def attempt(label, host, headers, ssl_context):
             async with session.get(url, headers=headers, timeout=timeout) as response:
                 body = await response.read()
                 mark = "OK  " if response.status == 200 else "FAIL"
-                print("  %s %-42s %s  (%d bytes)" % (
-                    mark, label, response.status, len(body)))
+                print(
+                    "  %s %-42s %s  (%d bytes)"
+                    % (mark, label, response.status, len(body))
+                )
                 return response.status == 200
     except Exception as error:  # noqa: BLE001 - diagnostics: report anything
         print("  FAIL %-42s %s: %s" % (label, type(error).__name__, error))
@@ -92,8 +94,7 @@ async def main():
     print("  aiohttp  %s" % aiohttp.__version__)
     print("  openssl  %s" % ssl.OPENSSL_VERSION)
     try:
-        print("  resolves %s -> %s" % (
-            HOSTS[0], socket.gethostbyname(HOSTS[0])))
+        print("  resolves %s -> %s" % (HOSTS[0], socket.gethostbyname(HOSTS[0])))
     except OSError as error:
         print("  resolves %s -> FAILED (%s)" % (HOSTS[0], error))
     print("")
@@ -101,19 +102,31 @@ async def main():
     results = []
     for host in HOSTS:
         print("%s" % host)
-        results.append(await attempt(
-            "default TLS, browser headers", host, BROWSER_HEADERS, None))
-        results.append(await attempt(
-            "browser cipher order", host, BROWSER_HEADERS,
-            _context(ciphers=BROWSER_CIPHERS)))
-        results.append(await attempt(
-            "TLS 1.2 max", host, BROWSER_HEADERS,
-            _context(max_version=ssl.TLSVersion.TLSv1_2)))
-        results.append(await attempt(
-            "ALPN http/1.1 only", host, BROWSER_HEADERS,
-            _context(alpn=["http/1.1"])))
-        results.append(await attempt(
-            "no custom headers at all", host, {}, None))
+        results.append(
+            await attempt("default TLS, browser headers", host, BROWSER_HEADERS, None)
+        )
+        results.append(
+            await attempt(
+                "browser cipher order",
+                host,
+                BROWSER_HEADERS,
+                _context(ciphers=BROWSER_CIPHERS),
+            )
+        )
+        results.append(
+            await attempt(
+                "TLS 1.2 max",
+                host,
+                BROWSER_HEADERS,
+                _context(max_version=ssl.TLSVersion.TLSv1_2),
+            )
+        )
+        results.append(
+            await attempt(
+                "ALPN http/1.1 only", host, BROWSER_HEADERS, _context(alpn=["http/1.1"])
+            )
+        )
+        results.append(await attempt("no custom headers at all", host, {}, None))
         print("")
 
     print("-" * 66)

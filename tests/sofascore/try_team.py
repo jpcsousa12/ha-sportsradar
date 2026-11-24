@@ -48,8 +48,18 @@ WIDTH = 64
 # The sport values the config flow offers (const.SPORT_OPTIONS, which cannot
 # be imported here without Home Assistant installed).
 SPORTS = (
-    "american-football", "baseball", "basketball", "cricket", "football",
-    "handball", "hockey", "mma", "motorsport", "rugby", "tennis", "volleyball",
+    "american-football",
+    "baseball",
+    "basketball",
+    "cricket",
+    "football",
+    "handball",
+    "hockey",
+    "mma",
+    "motorsport",
+    "rugby",
+    "tennis",
+    "volleyball",
 )
 
 
@@ -144,9 +154,7 @@ async def show_once(api, team_id, team_name, sport, quiet_header=False):
     # following a fixture.
     detail = await api.get_event(event["id"]) or event
 
-    values = await async_process_sofascore_event(
-        {}, "try_team", detail, team_id, api
-    )
+    values = await async_process_sofascore_event({}, "try_team", detail, team_id, api)
 
     state = values.get("state")
     if state == "IN":
@@ -156,8 +164,10 @@ async def show_once(api, team_id, team_name, sport, quiet_header=False):
 
     if not quiet_header:
         print(BAR)
-        print("  %s  vs  %s" % (
-            values.get("team_name") or "?", values.get("opponent_name") or "?"))
+        print(
+            "  %s  vs  %s"
+            % (values.get("team_name") or "?", values.get("opponent_name") or "?")
+        )
         print(BAR)
 
     _row("Competition", values.get("league"))
@@ -167,8 +177,10 @@ async def show_once(api, team_id, team_name, sport, quiet_header=False):
     if state == "PRE":
         _row("Kick-off", _kickoff_phrase(detail.get("startTimestamp")))
     else:
-        _row("Score", "%s - %s" % (
-            values.get("team_score"), values.get("opponent_score")))
+        _row(
+            "Score",
+            "%s - %s" % (values.get("team_score"), values.get("opponent_score")),
+        )
         _row("Clock", values.get("clock"))
         _row("Period", values.get("quarter"))
 
@@ -220,17 +232,22 @@ async def list_live(api, sport):
         home = event.get("homeTeam", {})
         away = event.get("awayTeam", {})
         status = event.get("status", {}).get("description", "")
-        print("  %-7s %-26s %s-%s  %-24s %s" % (
-            home.get("id"),
-            (home.get("name") or "")[:26],
-            event.get("homeScore", {}).get("current", 0),
-            event.get("awayScore", {}).get("current", 0),
-            (away.get("name") or "")[:24],
-            status,
-        ))
+        print(
+            "  %-7s %-26s %s-%s  %-24s %s"
+            % (
+                home.get("id"),
+                (home.get("name") or "")[:26],
+                event.get("homeScore", {}).get("current", 0),
+                event.get("awayScore", {}).get("current", 0),
+                (away.get("name") or "")[:24],
+                status,
+            )
+        )
     print(BAR)
-    print("  e.g.  python tests/sofascore/try_team.py %s --watch"
-          % events[0].get("homeTeam", {}).get("id"))
+    print(
+        "  e.g.  python tests/sofascore/try_team.py %s --watch"
+        % events[0].get("homeTeam", {}).get("id")
+    )
 
 
 async def main():
@@ -240,15 +257,24 @@ async def main():
         epilog=__doc__,
     )
     parser.add_argument(
-        "team", nargs="?",
-        help="SofaScore team id (e.g. 3002) or team name (e.g. \"FC Porto\")",
+        "team",
+        nargs="?",
+        help='SofaScore team id (e.g. 3002) or team name (e.g. "FC Porto")',
     )
-    parser.add_argument("--sport", default="football",
-                        help="sport slug (default: football)")
-    parser.add_argument("--live", action="store_true",
-                        help="list teams playing right now, with their ids")
-    parser.add_argument("--watch", "-w", action="store_true",
-                        help="keep refreshing (5s while live, like the integration)")
+    parser.add_argument(
+        "--sport", default="football", help="sport slug (default: football)"
+    )
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="list teams playing right now, with their ids",
+    )
+    parser.add_argument(
+        "--watch",
+        "-w",
+        action="store_true",
+        help="keep refreshing (5s while live, like the integration)",
+    )
     args = parser.parse_args()
 
     if not args.live and not args.team:
@@ -264,8 +290,7 @@ async def main():
         team_id, team_name = await _resolve_team(api, args.team, args.sport)
         if not team_id:
             print("Could not find %r in %s." % (args.team, args.sport))
-            print("Use --live to see what is on, or try the exact name "
-                  "SofaScore uses.")
+            print("Use --live to see what is on, or try the exact name SofaScore uses.")
             return 1
 
         print("Resolved %r -> %s (id %s)" % (args.team, team_name, team_id))
@@ -286,8 +311,7 @@ async def main():
     except SofaScoreApiError as error:
         print("")
         print("SofaScore error: %s" % error)
-        print("If this is a 403, this host is being blocked by their edge "
-              "cache.")
+        print("If this is a 403, this host is being blocked by their edge cache.")
         return 1
     except KeyboardInterrupt:
         print("")

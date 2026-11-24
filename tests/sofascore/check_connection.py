@@ -47,24 +47,32 @@ async def main():
             print("      Try the exact name SofaScore uses on its own site.")
             return 1
         team_id = team["id"]
-        print("OK    API reachable - resolved %r to team id %s" % (team["name"], team_id))
+        print(
+            "OK    API reachable - resolved %r to team id %s" % (team["name"], team_id)
+        )
 
         # 2. Is the team playing right now?
         live = await api.get_team_live_event(team_id, sport)
         if live:
             event = live
-            print("OK    Live match in progress: %s (status: %s)" % (
-                event.get("slug"), event.get("status", {}).get("description")))
+            print(
+                "OK    Live match in progress: %s (status: %s)"
+                % (event.get("slug"), event.get("status", {}).get("description"))
+            )
         else:
             print("OK    Live feed reachable - no match in progress right now")
             event = await api.get_team_next_event(team_id)
             if event:
-                print("OK    Next fixture: %s (event id %s)" % (
-                    event.get("slug"), event.get("id")))
+                print(
+                    "OK    Next fixture: %s (event id %s)"
+                    % (event.get("slug"), event.get("id"))
+                )
             else:
                 event = await api.get_team_last_event(team_id)
                 if event:
-                    print("OK    No upcoming fixture; most recent: %s" % event.get("slug"))
+                    print(
+                        "OK    No upcoming fixture; most recent: %s" % event.get("slug")
+                    )
                 else:
                     print("WARN  No fixtures found at all for this team")
                     ok = False
@@ -82,20 +90,25 @@ async def main():
             values = await async_process_sofascore_event(
                 {}, "check_connection", detail or event, team_id, api
             )
-            print("OK    Processed into state=%s  %s %s-%s %s" % (
-                values.get("state"),
-                values.get("team_abbr") or values.get("team_name"),
-                values.get("team_score"),
-                values.get("opponent_score"),
-                values.get("opponent_abbr") or values.get("opponent_name"),
-            ))
+            print(
+                "OK    Processed into state=%s  %s %s-%s %s"
+                % (
+                    values.get("state"),
+                    values.get("team_abbr") or values.get("team_name"),
+                    values.get("team_score"),
+                    values.get("opponent_score"),
+                    values.get("opponent_abbr") or values.get("opponent_name"),
+                )
+            )
 
             if values.get("state") == "IN":
                 values = await async_get_sofascore_statistics(
                     values, detail.get("id"), team_id, api, "check_connection"
                 )
-                print("OK    Live statistics fetched (possession: %s)" % (
-                    values.get("possession") or "n/a"))
+                print(
+                    "OK    Live statistics fetched (possession: %s)"
+                    % (values.get("possession") or "n/a")
+                )
 
     except SofaScoreApiError as error:
         print("FAIL  %s" % error)
@@ -109,7 +122,9 @@ async def main():
         await api.close()
 
     print("-" * 60)
-    print("RESULT: %s" % ("usable from this host" if ok else "NOT usable from this host"))
+    print(
+        "RESULT: %s" % ("usable from this host" if ok else "NOT usable from this host")
+    )
     return 0 if ok else 1
 
 
