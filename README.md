@@ -162,6 +162,30 @@ automation:
 - **Kit colours empty**: line-ups are not out yet, or SofaScore has none for
   that competition.
 
+To see what the integration is doing, enable debug logging in
+`configuration.yaml`:
+
+```yaml
+logger:
+  logs:
+    custom_components.sportsradar: debug
+```
+
+### Check before installing
+
+From a clone of this repository (needs `aiohttp` and `arrow`), `try_team.py`
+runs the integration's own API client and processor and prints what the sensor
+would show:
+
+```bash
+python tests/sofascore/try_team.py "FC Porto"       # by name or SofaScore id
+python tests/sofascore/try_team.py --live           # teams playing right now
+python tests/sofascore/try_team.py "FC Porto" --watch   # follow a live match
+```
+
+A 403 means SofaScore is blocking that network. It is network-specific, so run
+the check on the Home Assistant host, not only on your laptop.
+
 ## Limitations
 
 - SofaScore has no official public API. This integration uses the same
