@@ -32,6 +32,7 @@ from .const import (
     DEFAULT_LOGO,
     DEFAULT_SPORT_PATH,
     DEFAULT_TIMEOUT,
+    FAILURE_BACKOFF,
     DOMAIN,
     ISSUE_URL,
     LEAGUE_MAP,
@@ -299,36 +300,43 @@ class SportsRadarDataUpdateCoordinator(DataUpdateCoordinator):
     #  Top-level method called from HA to update data for all sportsradar sensors
     #
     async def _async_update_data(self):
-        """Update data."""
-        async with asyncio.timeout(DEFAULT_TIMEOUT):
-            try:
+        """Fetch new data, adapting the polling interval to the match state."""
+        try:
+            async with asyncio.timeout(DEFAULT_TIMEOUT):
                 data = await self.async_update_game_data(self.config, self.hass)
+        except Exception as error:
+            self._back_off()
+            # This is why the entity goes unavailable, so say it plainly
+            # and at a level that shows up without enabling debug logging.
+            _LOGGER.error(
+                "%s: Update failed, sensor will show as unavailable. %s: %s",
+                self.name,
+                type(error).__name__,
+                error,
+            )
+            _LOGGER.debug("%s: Update failure details", self.name, exc_info=True)
+            raise UpdateFailed(error) from error
 
-                # update the interval based on flag
-                if data["private_fast_refresh"]:
-                    if self.update_interval != RAPID_REFRESH_RATE:
-                        self.update_interval = RAPID_REFRESH_RATE
-                        _LOGGER.debug(
-                            "%s: Switching to rapid refresh rate (%s)", self.name, self.update_interval
-                        )
-                else:
-                    if self.update_interval != DEFAULT_REFRESH_RATE:
-                        self.update_interval = DEFAULT_REFRESH_RATE
-                        _LOGGER.debug(
-                            "%s: Switching to default refresh rate (%s)", self.name, self.update_interval
-                        )
-            except Exception as error:
-                # This is why the entity goes unavailable, so say it plainly
-                # and at a level that shows up without enabling debug logging.
-                _LOGGER.error(
-                    "%s: Update failed, sensor will show as unavailable. %s: %s",
-                    self.name,
-                    type(error).__name__,
-                    error,
-                    exc_info=True,
-                )
-                raise UpdateFailed(error) from error
-            return data
+        wanted = RAPID_REFRESH_RATE if data["private_fast_refresh"] else DEFAULT_REFRESH_RATE
+        if self.update_interval != wanted:
+            self.update_interval = wanted
+            _LOGGER.debug("%s: Refresh rate is now %s", self.name, self.update_interval)
+        return data
+
+    def _back_off(self):
+        """Slow down after a failed update.
+
+        A failure during a live match would otherwise keep retrying every few
+        seconds, which is exactly what gets a client blocked by SofaScore.
+        The interval doubles from FAILURE_BACKOFF up to the default rate, and
+        the next successful update puts it back where the match needs it.
+        """
+        backoff = min(
+            DEFAULT_REFRESH_RATE, max(FAILURE_BACKOFF, self.update_interval * 2)
+        )
+        if self.update_interval != backoff:
+            self.update_interval = backoff
+            _LOGGER.debug("%s: Backing off to %s after a failure", self.name, backoff)
 
     async def async_update_game_data(self, config, hass) -> dict:
         """Fetch the tracked fixture from SofaScore and build the values."""

@@ -10,6 +10,7 @@ with the right state, with the SofaScore API stubbed out so no network call is
 made.
 """
 
+from datetime import timedelta
 import json
 import os
 from unittest.mock import patch
@@ -480,3 +481,34 @@ async def test_setup_fetches_the_event_once(hass, socket_enabled):
 
     # One refresh: resolving the fixture upgrades it with a single /event call.
     assert calls == 1
+
+
+async def test_failed_updates_back_off_instead_of_polling_fast(hass, socket_enabled):
+    """A failure during a live match must not keep the 5 second interval."""
+    live = FIX["live_event"]
+    entry = await _setup(hass, live=live, event=live)
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    assert coordinator.update_interval == timedelta(seconds=5)
+
+    with patch(
+        "custom_components.sportsradar.SofaScoreAPI.get_event",
+        side_effect=SofaScoreApiError("403 Forbidden"),
+    ):
+        await coordinator.async_refresh()
+        assert not coordinator.last_update_success
+        assert coordinator.update_interval == timedelta(seconds=30)
+
+        await coordinator.async_refresh()
+        assert coordinator.update_interval == timedelta(seconds=60)
+
+    # Recovery puts the live rate back.
+    patches = _patch_api(live=live, event=live)
+    for p in patches:
+        p.start()
+    try:
+        await coordinator.async_refresh()
+    finally:
+        for p in patches:
+            p.stop()
+    assert coordinator.last_update_success
+    assert coordinator.update_interval == timedelta(seconds=5)

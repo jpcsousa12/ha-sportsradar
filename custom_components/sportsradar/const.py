@@ -200,6 +200,8 @@ POST_GAME_HOLD = timedelta(hours=5)
 
 DEFAULT_REFRESH_RATE = timedelta(minutes=10)
 RAPID_REFRESH_RATE = timedelta(seconds=5)
+# First retry interval after a failed update; doubles up to the default rate.
+FAILURE_BACKOFF = timedelta(seconds=30)
 
 # Services
 SERVICE_NAME_CALL_API = "call_api"
