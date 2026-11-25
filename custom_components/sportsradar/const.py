@@ -200,7 +200,7 @@ SERVICE_NAME_CALL_API = "call_api"
 SERVICE_NAME_DIAGNOSE = "diagnose"
 
 # Misc
-VERSION = "v1.3.0"
+VERSION = "v1.4.0"
 ISSUE_URL = "https://github.com/jpcsousa12/ha-sportsradar"
 DOMAIN = "sportsradar"
 ATTRIBUTION = "Data provided by SofaScore"
