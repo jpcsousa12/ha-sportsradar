@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/jpcsousa12/ha-sportsradar/releases/latest"><img src="https://img.shields.io/github/v/release/jpcsousa12/ha-sportsradar" alt="Latest release"></a>
-  <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS Custom"></a>
+  <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Default-41BDF5.svg" alt="HACS Default"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/jpcsousa12/ha-sportsradar" alt="License"></a>
 </p>
 
@@ -44,9 +44,20 @@ from Home Assistant 2026.3.
 
 ### HACS (recommended)
 
-1. HACS → ⋮ → **Custom repositories**
-2. Add `https://github.com/jpcsousa12/ha-sportsradar`, type **Integration**
-3. Install **Sports Radar** and restart Home Assistant
+Sports Radar is in the HACS default store.
+
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jpcsousa12&repository=ha-sportsradar&category=integration)
+
+1. In Home Assistant, open **HACS** and search for **Sports Radar**
+   (or use the button above)
+2. Click **Download** and restart Home Assistant
+3. Add the integration: **Settings → Devices & services → Add integration →
+   Sports Radar**
+
+If it does not show up in the search (for example on an older HACS cache),
+add it as a custom repository instead: HACS → ⋮ → **Custom repositories**, add
+`https://github.com/jpcsousa12/ha-sportsradar` with type **Integration**, then
+download it as above.
 
 ### Manual
 
